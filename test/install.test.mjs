@@ -17,7 +17,7 @@ test('configure claude: engine + versão + slash command + statusLine', () => ru
   assert.ok(existsSync(join(t.engineDir, 'jdi.mjs')));
   const cfg = readJson(t.config);
   assert.equal(cfg.features.git, true); assert.equal(cfg.features.cost, false);
-  assert.equal(cfg.version, I.PKG_VERSION); assert.equal(cfg.bar.width, 10);
+  assert.equal(cfg.version, I.pkgVersion()); assert.equal(cfg.bar.width, 10);
   assert.match(readJson(t.settings).statusLine.command, /--adapter=claude/);
   assert.ok(existsSync(t.commandFile));
   const md = readFileSync(t.commandFile, 'utf8');
@@ -70,7 +70,7 @@ test('refreshEngine preserva features e recarimba versão; sem configurar lança
   I.writeConfigFile('claude', c, home);
   I.refreshEngine('claude', home);
   const a = I.readConfigFile('claude', home);
-  assert.equal(a.features.cost, true); assert.equal(a.version, I.PKG_VERSION);
+  assert.equal(a.features.cost, true); assert.equal(a.version, I.pkgVersion());
 }));
 
 test('uninstall --purge remove statusLine, engine e slash command', () => run((home) => {
