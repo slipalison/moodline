@@ -27,6 +27,17 @@ test('localJdi: declarado no package.json (sem node_modules)', () => {
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 
+test('localJdi: encontra subindo do subdiretório (node_modules na raiz)', () => {
+  const root = tmp();
+  try {
+    mkdirSync(join(root, 'node_modules', 'jdi-cli'), { recursive: true });
+    writeFileSync(join(root, 'node_modules', 'jdi-cli', 'package.json'), JSON.stringify({ version: '0.1.13' }));
+    const sub = join(root, 'src', 'deep', 'nested');
+    mkdirSync(sub, { recursive: true });
+    assert.deepEqual(localJdi(sub), { installed: true, version: '0.1.13' });
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('localJdi: ausente e cwd nulo', () => {
   const cwd = tmp();
   try {
