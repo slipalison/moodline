@@ -1,0 +1,11 @@
+{
+  "layout": "single",
+  "bar": { "width": 20 },
+  "punRotateMs": 30000,
+  "features": {
+    "git": true,
+    "cost": true,
+    "rate": true,
+    "puns": true
+  }
+}

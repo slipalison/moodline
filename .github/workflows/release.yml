@@ -1,0 +1,37 @@
+name: release
+
+# Dispara ao empurrar uma tag v* (ex.: v0.1.0). Publica no npm e cria o GitHub Release.
+# Requer o secret NPM_TOKEN (Settings > Secrets and variables > Actions) com um token
+# de Automation do npm. Sem ele, o publish falha (o resto roda).
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # criar o GitHub Release
+  id-token: write   # provenance do npm
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: test
+        run: node test/smoke.mjs
+
+      - name: publish to npm
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: github release
+        run: gh release create "${{ github.ref_name }}" --generate-notes --title "${{ github.ref_name }}"
+        env:
+          GH_TOKEN: ${{ github.token }}

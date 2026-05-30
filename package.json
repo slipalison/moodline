@@ -1,0 +1,49 @@
+{
+  "name": "moodline",
+  "version": "0.1.0",
+  "description": "Statusline divertida e informativa para CLIs de IA (Claude Code, GitHub Copilot CLI e mais): barra de contexto em gradiente, emoji-humor, git, custo e trocadilhos de dev.",
+  "type": "module",
+  "bin": {
+    "moodline": "bin/moodline.js"
+  },
+  "exports": {
+    ".": "./lib/moodline-core.mjs"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node test/smoke.mjs"
+  },
+  "keywords": [
+    "statusline",
+    "status-line",
+    "claude-code",
+    "copilot-cli",
+    "github-copilot",
+    "ai-cli",
+    "cli",
+    "terminal",
+    "prompt",
+    "context-window",
+    "tokens",
+    "emoji",
+    "developer-tools"
+  ],
+  "author": "Alison Amorim <alison.amorim.mail@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slipalison/moodline.git"
+  },
+  "homepage": "https://github.com/slipalison/moodline#readme",
+  "bugs": {
+    "url": "https://github.com/slipalison/moodline/issues"
+  }
+}

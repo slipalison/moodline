@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: smoke test
+        run: node test/smoke.mjs
+      - name: render demo (stdin)
+        shell: bash
+        run: echo '{"model":{"display_name":"Opus"},"effort":{"level":"high"},"context_window":{"used_percentage":92,"total_input_tokens":184000}}' | node bin/moodline.js render
