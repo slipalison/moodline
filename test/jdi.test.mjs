@@ -58,7 +58,7 @@ test('jdiSegment: instalado com update disponível', () => {
     writeFileSync(join(cwd, 'node_modules', 'jdi-cli', 'package.json'), JSON.stringify({ version: '1.0.0' }));
     const seg = jdiSegment({ cwd, cache: { jdiLatest: '1.2.0' }, cmpVer, colors: COLORS });
     assert.ok(seg && seg.ad === false);
-    assert.match(seg.txt, /JDI v1\.2\.0/); assert.match(seg.txt, /atualizar/); assert.match(seg.txt, /jdi-cli/);
+    assert.match(seg.txt, /JDI v1\.2\.0/); assert.match(seg.txt, /npmjs\.com\/package\/jdi-cli/);
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 
@@ -72,7 +72,7 @@ test('jdiSegment: não instalado -> anúncio na janela certa, null fora dela', (
     writeFileSync(join(cwd, 'package.json'), JSON.stringify({}));
     const ad = jdiSegment({ cwd, cache: {}, rotateMs: 1000, cmpVer, colors: COLORS, now: 0 }); // win 0 -> anúncio
     assert.ok(ad && ad.ad === true);
-    assert.match(ad.txt, /veja aqui/); assert.match(ad.txt, /jdi-cli/);
+    assert.match(ad.txt, /npmjs\.com\/package\/jdi-cli/);
     assert.equal(jdiSegment({ cwd, cache: {}, rotateMs: 1000, cmpVer, colors: COLORS, now: 1000 }), null); // win 1 -> null
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });

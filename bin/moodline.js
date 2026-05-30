@@ -136,7 +136,8 @@ async function cmdUpdate(opts) {
   if (latest && cmpVer(latest, cur) <= 0 && !opts.force) { console.log(`${C.green}✓${C.reset} moodline já está na última versão (v${cur}).`); return; }
   console.log(`${C.cyan}↑${C.reset} Atualizando moodline ${cur} → ${latest || 'latest'}…`);
   const sp = ui.spinner('npm i -g moodline@latest');
-  const r = spawnSync('npm', ['i', '-g', 'moodline@latest'], { stdio: 'ignore', shell: process.platform === 'win32' });
+  const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'; // evita shell:true (DEP0190)
+  const r = spawnSync(npmCmd, ['i', '-g', 'moodline@latest'], { stdio: 'ignore' });
   sp.stop(r.status === 0, r.status === 0 ? 'pacote global atualizado' : 'npm i -g falhou — rode manualmente: npm i -g moodline@latest');
   for (const key of install.configuredKeys(opts.home)) {
     try { install.refreshEngine(key, opts.home); console.log(`${C.green}✓${C.reset} ${install.targets(opts.home)[key].label}: engine atualizado`); }

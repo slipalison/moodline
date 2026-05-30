@@ -121,6 +121,17 @@ test('badge ⬆ aparece quando state.update', () => {
   assert.match(render(s, wide()), /⬆ v9\.9\.9/);
 });
 
+test('anúncio do JDI ocupa o slot do trocadilho (suprime o pun)', () => {
+  const out = strip(render({ model: 'M', pct: 10, tokens: 0, jdi: { txt: 'ADX', ad: true } }, wide({ features: { puns: true } })));
+  assert.match(out, /ADX/);
+  assert.doesNotMatch(out, /💬/);
+});
+
+test('aviso de update do JDI não suprime o pun', () => {
+  const out = strip(render({ model: 'M', pct: 10, tokens: 0, jdi: { txt: 'UPD', ad: false } }, wide({ features: { puns: true } })));
+  assert.match(out, /UPD/); assert.match(out, /💬/);
+});
+
 test('attachGit: usa gitBranch; desligado vira null; ligado consulta git', () => {
   assert.equal(attachGit({ gitBranch: 'main', cwd: null }, true).git.branch, 'main');
   assert.equal(attachGit({ gitBranch: null, cwd: process.cwd() }, false).git, null);
