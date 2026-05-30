@@ -19,7 +19,10 @@ test('configure claude: engine + versão + slash command + statusLine', () => ru
   assert.equal(cfg.features.git, true); assert.equal(cfg.features.cost, false);
   assert.equal(cfg.version, I.PKG_VERSION); assert.equal(cfg.bar.width, 10);
   assert.match(readJson(t.settings).statusLine.command, /--adapter=claude/);
-  assert.ok(existsSync(t.commandFile)); assert.match(readFileSync(t.commandFile, 'utf8'), /moodline config/);
+  assert.ok(existsSync(t.commandFile));
+  const md = readFileSync(t.commandFile, 'utf8');
+  assert.match(md, /moodline config/);
+  assert.match(md, /AskUserQuestion/); // menu interativo no Claude Code
 }));
 
 test('configure copilot: feature flag STATUS_LINE e sem slash command', () => run((home) => {

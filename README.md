@@ -109,14 +109,14 @@ moodline disable --all         # desliga em todas
 `moodline config` liga/desliga cada segmento e ajusta a barra. Atualiza **ao vivo** — a statusline relê o config no próximo refresh, sem reiniciar:
 
 ```bash
-moodline config                       # menu interativo (features, tamanho, layout)
-moodline config --off cost,rate       # desliga segmentos
-moodline config --toggle git          # alterna um
+moodline config                        # menu interativo no terminal (setas ↑↓, espaço, enter)
+moodline config --off=cost,rate        # desliga segmentos
+moodline config --toggle=git           # alterna um
 moodline config --bar=8 --layout=multi
-moodline config --show                # mostra o config atual
+moodline config --show                 # mostra o config atual
 ```
 
-Dentro do **Claude Code** dá pra fazer isso sem sair: o `init` instala o slash command `/moodline`. Digite `/moodline desliga o custo` (ou só `/moodline`) que ele aplica o `moodline config` por você. No Copilot CLI, use o `moodline config` no terminal.
+Dentro do **Claude Code**, o `init` instala o slash command `/moodline`. Digite só `/moodline` que ele abre um **menu interativo** (o seletor de múltipla escolha do próprio Claude Code, via AskUserQuestion) pra marcar features, tamanho e layout — e aplica sozinho. Ou seja direto: `/moodline desliga o custo`. No **Copilot CLI** não há esse seletor nativo: use `/moodline` em texto ou o TUI do `moodline config` no terminal.
 
 ### Atualização
 
