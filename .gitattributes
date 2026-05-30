@@ -1,0 +1,5 @@
+# Garante LF no repositorio (shebang do bin e scripts .sh quebram com CRLF no Linux/npm)
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
