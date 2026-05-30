@@ -20,11 +20,11 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           registry-url: 'https://registry.npmjs.org'
 
-      - name: test
-        run: node test/smoke.mjs
+      - name: testes + gate de cobertura
+        run: npm run coverage
 
       - name: publish to npm
         run: npm publish --access public --provenance
