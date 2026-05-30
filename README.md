@@ -16,11 +16,13 @@ A cor da barra é interpolada de forma contínua no espaço HSL, do verde (matiz
 
 ## Instalação
 
-Uma linha. Detecta as CLIs instaladas e configura cada uma:
+Uma linha. Abre um **wizard interativo** (logo animado, seletor de CLIs e features):
 
 ```bash
 npx moodline init
 ```
+
+A instalação é sempre **global (user-level)** — vale pra todos os projetos daquela CLI, nunca por repositório. Modo não-interativo (CI/scripts): `npx moodline init --all --yes`.
 
 Depois é só abrir uma sessão do Claude Code (ou do Copilot CLI). Pra testar a barra na hora, sem abrir sessão:
 
@@ -46,9 +48,9 @@ Resumo: **Claude Code e Copilot CLI funcionam de verdade hoje**, porque comparti
 
 ```
 npx moodline init
-   └─ copia o engine (lib/moodline-core.mjs) pra ~/.claude/moodline/ e ~/.copilot/moodline/
+   └─ copia o engine (moodline-core.mjs + puns.mjs) pra ~/.claude/moodline/ e ~/.copilot/moodline/
    └─ escreve um config.json com as features escolhidas
-   └─ aponta o settings.json da CLI pra: node ".../moodline-core.mjs" --adapter=claude --config=...
+   └─ aponta o settings.json (user-level) da CLI pra: node ".../moodline-core.mjs" --adapter=claude --config=...
 ```
 
 A cada atualização, a CLI executa o engine passando o JSON da sessão no stdin. O engine **normaliza** os campos (via um *adapter* por CLI), monta a barra e imprime no stdout. Zero dependências de runtime, então o render é rápido.
@@ -76,13 +78,27 @@ npx moodline init --all                    # força Claude Code E Copilot CLI
 ## Comandos
 
 ```
-moodline init        Configura a statusline nas CLIs detectadas
+moodline init        Wizard de instalação (interativo) — escopo global
+moodline enable      Liga a statusline      [--all | --claude | --copilot]
+moodline disable     Desliga (mantém config; re-enable instantâneo)
+moodline doctor      Mostra o que está instalado e ligado
+moodline uninstall   Remove a statusLine    [--purge apaga o engine]
 moodline render      Lê JSON no stdin e imprime a barra (teste)
-moodline doctor      Mostra o que está instalado e configurado
-moodline uninstall   Remove a statusLine das CLIs
 moodline watch       [experimental] Poller pro OpenCode → stdout
 moodline --help
 ```
+
+### Ligar e desligar
+
+Habilite ou desabilite por CLI, sem perder a configuração — ideal pra alternar dentro do Claude Code ou do Copilot:
+
+```bash
+moodline disable --claude     # desliga só no Claude Code
+moodline enable --copilot      # liga só no Copilot CLI
+moodline disable --all         # desliga em todas
+```
+
+`disable` só remove a chave `statusLine` do `settings.json`; o engine e o `config.json` ficam, então `enable` volta na hora.
 
 ## Configuração manual
 
@@ -132,7 +148,16 @@ npm test        # smoke tests (sem framework, só node)
 echo '{"model":{"display_name":"Opus"},"context_window":{"used_percentage":50,"total_input_tokens":100000}}' | node bin/moodline.js render
 ```
 
-Arquitetura: `lib/moodline-core.mjs` é o engine auto-contido (render + adapters + git + puns). `bin/moodline.js` é o instalador/CLI. Adicionar uma CLI = escrever um adapter `fromX(json)` que normaliza pro mesmo formato de estado.
+Arquitetura (arquivos separados de propósito):
+
+- `lib/moodline-core.mjs` — engine (render + adapters + git). Importa só `./puns.mjs` e built-ins.
+- `lib/puns.mjs` — lista de trocadilhos PT-BR (o arquivo mais fácil de editar/crescer).
+- `lib/logo.mjs` — logo ASCII + render com gradiente + animação de onda.
+- `lib/ui.mjs` — prompts interativos (multiselect/select/confirm) e spinner, em `node:readline` puro.
+- `lib/install.mjs` — instalar/enable/disable/uninstall (sempre user-level; aceita `home` pra testes).
+- `bin/moodline.js` — dispatcher fino dos comandos.
+
+O `init` copia só os arquivos do engine (`moodline-core.mjs` + `puns.mjs`) pra dentro da CLI. Adicionar uma CLI = escrever um adapter `fromX(json)` em `moodline-core.mjs` que normaliza pro mesmo formato de estado.
 
 ### Release
 
