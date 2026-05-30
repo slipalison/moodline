@@ -1,4 +1,5 @@
 node_modules/
+**/.update.json
 *.log
 npm-debug.log*
 .DS_Store

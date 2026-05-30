@@ -11,9 +11,10 @@
 //   moodline --help|--version
 
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { render, ADAPTERS, attachGit, loadConfig, fromOpenCode } from '../lib/moodline-core.mjs';
+import { render, ADAPTERS, attachGit, loadConfig, fromOpenCode, cmpVer } from '../lib/moodline-core.mjs';
 import * as ui from '../lib/ui.mjs';
 import { printLogo, smallLogo } from '../lib/logo.mjs';
 import * as install from '../lib/install.mjs';
@@ -117,13 +118,31 @@ function cmdUninstall(opts) {
   }
 }
 
-function cmdDoctor(opts) {
+async function cmdDoctor(opts) {
   console.log(`${smallLogo()} ${C.dim}v${PKG.version}${C.reset}\n`);
   for (const d of install.detectInstalled(opts.home)) {
     const state = d.wired ? `${C.green}ativa${C.reset}` : d.engine ? `${C.yellow}configurada, desligada${C.reset}` : `${C.dim}não instalada${C.reset}`;
     console.log(`${C.bold}${d.label}${C.reset}`);
     console.log(`  dir detectado: ${d.present ? 'sim' : 'não'}   statusline: ${state}`);
   }
+  const latest = await install.fetchLatest();
+  if (latest && cmpVer(latest, PKG.version) > 0) console.log(`\n${C.yellow}⬆ atualização disponível:${C.reset} v${PKG.version} → v${latest}   rode ${C.cyan}moodline update${C.reset}`);
+  else if (latest) console.log(`\n${C.green}✓ na última versão${C.reset} (v${PKG.version})`);
+}
+
+async function cmdUpdate(opts) {
+  const latest = await install.fetchLatest();
+  const cur = PKG.version;
+  if (latest && cmpVer(latest, cur) <= 0 && !opts.force) { console.log(`${C.green}✓${C.reset} moodline já está na última versão (v${cur}).`); return; }
+  console.log(`${C.cyan}↑${C.reset} Atualizando moodline ${cur} → ${latest || 'latest'}…`);
+  const sp = ui.spinner('npm i -g moodline@latest');
+  const r = spawnSync('npm', ['i', '-g', 'moodline@latest'], { stdio: 'ignore', shell: process.platform === 'win32' });
+  sp.stop(r.status === 0, r.status === 0 ? 'pacote global atualizado' : 'npm i -g falhou — rode manualmente: npm i -g moodline@latest');
+  for (const key of install.configuredKeys(opts.home)) {
+    try { install.refreshEngine(key, opts.home); console.log(`${C.green}✓${C.reset} ${install.targets(opts.home)[key].label}: engine atualizado`); }
+    catch (e) { console.log(`${C.yellow}!${C.reset} ${e.message}`); }
+  }
+  console.log(`${C.green}Pronto.${C.reset} A barra usa a nova versão no próximo refresh.`);
 }
 
 function cmdRender(opts) {
@@ -159,6 +178,68 @@ async function cmdWatch(opts) {
   setInterval(tick, interval);
 }
 
+const featLabel = (f) => ({ git: 'Git — branch + estado', cost: 'Custo + tempo + linhas', rate: 'Rate limits 5h/7d', puns: 'Trocadilhos 💬' }[f] || f);
+function barPreview(n) {
+  const full = Math.round(n * 0.4);
+  const edge = Math.min(2, Math.max(0, n - full));
+  return '[' + '█'.repeat(full) + '▒'.repeat(edge) + '░'.repeat(Math.max(0, n - full - edge)) + ']';
+}
+function applyConfigFlags(cfg, opts) {
+  const list = (v) => String(v).split(',').map((s) => s.trim()).filter(Boolean);
+  if (opts.on) for (const f of list(opts.on)) if (ALL_FEATURES.includes(f)) cfg.features[f] = true;
+  if (opts.off) for (const f of list(opts.off)) if (ALL_FEATURES.includes(f)) cfg.features[f] = false;
+  if (opts.toggle) for (const f of list(opts.toggle)) if (ALL_FEATURES.includes(f)) cfg.features[f] = !cfg.features[f];
+  if (opts.bar !== undefined) cfg.bar = { width: parseInt(opts.bar, 10) || 10 };
+  if (opts.layout) cfg.layout = opts.layout === 'multi' ? 'multi' : 'single';
+  if (opts.rotate) cfg.punRotateMs = parseInt(opts.rotate, 10) || 30000;
+}
+
+async function cmdConfig(opts) {
+  const home = opts.home;
+  let keys = ['claude', 'copilot'].filter((k) => opts[k]);
+  if (opts.cli) keys = opts.cli === 'all' ? ['claude', 'copilot'] : [opts.cli];
+  if (!keys.length) keys = install.configuredKeys(home);
+  keys = keys.filter((k) => install.readConfigFile(k, home));
+  if (!keys.length) { console.log(`${C.yellow}Nada configurado.${C.reset} Rode ${C.cyan}moodline init${C.reset}.`); return; }
+
+  if (opts.show) {
+    for (const key of keys) {
+      const t = install.targets(home)[key];
+      const cfg = install.readConfigFile(key, home);
+      const on = ALL_FEATURES.filter((f) => cfg.features?.[f]);
+      const off = ALL_FEATURES.filter((f) => !cfg.features?.[f]);
+      console.log(`${C.bold}${t.label}${C.reset}`);
+      console.log(`  ligados:    ${on.length ? C.green + on.join(', ') + C.reset : C.dim + '—' + C.reset}`);
+      console.log(`  desligados: ${off.length ? C.dim + off.join(', ') + C.reset : C.dim + '—' + C.reset}`);
+      console.log(`  barra: ${cfg.bar?.width ?? 10} ${C.dim}${barPreview(cfg.bar?.width ?? 10)}${C.reset}   layout: ${cfg.layout || 'single'}`);
+    }
+    return;
+  }
+
+  const flagMode = opts.toggle || opts.on || opts.off || opts.bar !== undefined || opts.layout || opts.rotate;
+  const interactive = ui.isInteractive() && !flagMode && !opts.yes;
+  let patch = null;
+  if (interactive) {
+    const base = install.readConfigFile(keys[0], home);
+    const feats = await ui.multiselect('O que mostrar na barra?', ALL_FEATURES.map((f) => ({ name: featLabel(f), value: f, checked: !!base.features?.[f] })));
+    const sizes = [8, 10, 12, 16, 20];
+    const bar = await ui.select('Tamanho da barra?', sizes.map((n) => ({ name: `${n}  ${barPreview(n)}`, value: n })), Math.max(0, sizes.indexOf(base.bar?.width ?? 10)));
+    const layout = await ui.select('Layout?', [{ name: 'Uma linha (compacto)', value: 'single' }, { name: 'Duas linhas', value: 'multi' }], base.layout === 'multi' ? 1 : 0);
+    patch = { features: Object.fromEntries(ALL_FEATURES.map((f) => [f, feats.includes(f)])), bar: { width: bar }, layout };
+  }
+
+  for (const key of keys) {
+    const cfg = install.readConfigFile(key, home);
+    cfg.features = cfg.features || {};
+    if (interactive) { Object.assign(cfg.features, patch.features); cfg.bar = patch.bar; cfg.layout = patch.layout; }
+    else applyConfigFlags(cfg, opts);
+    install.writeConfigFile(key, cfg, home);
+    const t = install.targets(home)[key];
+    console.log(`${C.green}✓${C.reset} ${t.label}: ${ALL_FEATURES.filter((f) => cfg.features[f]).join(', ') || '(nada)'} ${C.dim}· barra ${cfg.bar?.width ?? 10} · ${cfg.layout || 'single'}${C.reset}`);
+  }
+  console.log(`${C.dim}A barra atualiza no próximo refresh — sem reiniciar.${C.reset}`);
+}
+
 function cmdHelp() {
   console.log(`${smallLogo()} ${C.dim}v${PKG.version}${C.reset} — statusline divertida pra CLIs de IA
 
@@ -168,7 +249,10 @@ ${C.bold}Comandos:${C.reset}
   ${C.cyan}init${C.reset}        Wizard de instalação (interativo) — escopo global
   ${C.cyan}enable${C.reset}      Liga a statusline   ${C.dim}[--all | --claude | --copilot]${C.reset}
   ${C.cyan}disable${C.reset}     Desliga (mantém config; re-enable instantâneo)
-  ${C.cyan}doctor${C.reset}      Mostra o que está instalado e ligado
+  ${C.cyan}config${C.reset}      Escolhe o que aparece (menu ou flags) — atualiza ao vivo
+              ${C.dim}--show · --toggle=git · --on=a,b · --off=c · --bar=10 · --layout=multi · --cli=claude|copilot|all${C.reset}
+  ${C.cyan}doctor${C.reset}      Mostra o que está instalado, ligado e se há update
+  ${C.cyan}update${C.reset}      Atualiza o moodline (npm global + engine das CLIs)
   ${C.cyan}uninstall${C.reset}   Remove a statusLine ${C.dim}[--purge apaga o engine]${C.reset}
   ${C.cyan}render${C.reset}      Lê JSON no stdin e imprime a barra (teste)
   ${C.cyan}watch${C.reset}       [experimental] Poller pro OpenCode → stdout
@@ -191,8 +275,10 @@ switch (cmd) {
   case 'init': await cmdInit(opts); break;
   case 'enable': cmdToggle(opts, true); break;
   case 'disable': cmdToggle(opts, false); break;
+  case 'config': await cmdConfig(opts); break;
   case 'uninstall': cmdUninstall(opts); break;
-  case 'doctor': cmdDoctor(opts); break;
+  case 'update': await cmdUpdate(opts); break;
+  case 'doctor': await cmdDoctor(opts); break;
   case 'render': cmdRender(opts); break;
   case 'watch': await cmdWatch(opts); break;
   case 'version': console.log(PKG.version); break;

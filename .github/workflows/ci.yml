@@ -7,19 +7,30 @@ on:
 
 jobs:
   test:
-    name: test (${{ matrix.os }})
+    name: test (${{ matrix.os }}, node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [20, 24]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
-      - name: smoke test
-        run: node test/smoke.mjs
+          node-version: ${{ matrix.node }}
+      - name: testes
+        run: npm test
       - name: render demo (stdin)
         shell: bash
         run: echo '{"model":{"display_name":"Opus"},"effort":{"level":"high"},"context_window":{"used_percentage":92,"total_input_tokens":184000}}' | node bin/moodline.js render
+
+  coverage:
+    name: coverage gate (linhas/funcs ≥ 90%, branches ≥ 80%)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm run coverage

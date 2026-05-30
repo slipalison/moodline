@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 260" width="820" height="260" role="img" aria-label="moodline">
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2ecc40"/>
+      <stop offset="0.45" stop-color="#ffd000"/>
+      <stop offset="0.72" stop-color="#ff851b"/>
+      <stop offset="1" stop-color="#ff4136"/>
+    </linearGradient>
+    <style>
+      .word { font: 800 96px 'JetBrains Mono','Fira Code',Menlo,Consolas,monospace; letter-spacing:-2px; }
+      .tag  { font: 22px 'Segoe UI',-apple-system,Roboto,sans-serif; fill:#8b949e; }
+      .bar  { font: 44px 'JetBrains Mono',Menlo,Consolas,monospace; }
+      .meta { font: 28px 'JetBrains Mono',Menlo,Consolas,monospace; fill:#8b949e; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="820" height="260" rx="16" fill="#0d1117"/>
+
+  <!-- wordmark -->
+  <text x="48" y="120" class="word" fill="url(#grad)">moodline</text>
+  <text x="52" y="158" class="tag">🌿 statusline divertida e informativa pra CLIs de IA</text>
+
+  <!-- sample statusline -->
+  <text x="50" y="216" class="bar" fill="url(#grad)">[█████▒▒░░░]</text>
+  <text x="356" y="214" font-size="40">😅</text>
+  <text x="410" y="216" class="meta" fill="url(#grad)">50%</text>
+  <text x="492" y="216" class="meta">100k · 🌿 main · $0.21</text>
+</svg>

@@ -1,6 +1,6 @@
 {
   "layout": "single",
-  "bar": { "width": 20 },
+  "bar": { "width": 10 },
   "punRotateMs": 30000,
   "features": {
     "git": true,

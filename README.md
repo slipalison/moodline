@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/moodline.svg" alt="moodline" width="640">
+</p>
+
 # 🌿 moodline
 
 > Statusline divertida e informativa para CLIs de IA. Barra de contexto em gradiente, emoji que reage à ocupação, git, custo da sessão e trocadilhos de dev — instalável com um comando.
@@ -5,14 +9,14 @@
 Feita pra quem vive no terminal com agentes de código. Mostra de relance **quanto contexto ainda sobra** (antes de tomar um `/compact` na cara), o **modelo e o effort**, e ainda solta um **trocadilho** pra alegrar o `git push`.
 
 ```
-Opus high [█▒▒░░░░░░░░░░░░░░░░░░]  😎   5%  10k · 🌿 main · 💬 commit -m "ajustes"
-Opus high [█████▒▒░░░░░░░░░░░░░░]  🙂  25%  50k · 🌿 main* · 💸 $0.08 ⏱ 4m
-Opus high [██████████▒▒░░░░░░░░░]  😅  50% 100k · 🌿 feat/bar ↑2 · 💸 $0.21 ⏱ 12m +120/-30
-Opus high [███████████████▒▒░░░░]  🥵  75% 150k · ⏳ 5h 42% 7d 13%
-Opus high [██████████████████▒▒░]  💀  92% 184k · 🌿 main · 404: piada nao encontrada
+Opus high   [▒▒░░░░░░░░]  😎   5%  10k/200k · 🌿 main · 💬 commit -m "ajustes"
+Opus high   [██▒▒░░░░░░]  🙂  25%  50k/200k · 🌿 main* · 💸 $0.08 ⏱ 4m
+Opus high   [█████▒▒░░░]  😅  50% 100k/200k · 🌿 feat/bar ↑2 · 💸 $0.21 +120/-30
+Opus high   [███████▒▒░]  🥵  75% 150k/200k · ⏳ 5h 42% 7d 13%
+Opus 4.8 max [█████▒▒░░░] 🙂  48% 477k/1M · 🌿 main · esse projeto ficaria melhor com JDI
 ```
 
-A cor da barra é interpolada de forma contínua no espaço HSL, do verde (matiz 120°) ao vermelho (0°). O emoji vai de 😎 (tranquilo) a 💀 (hora de dar `/clear`). Quando o terminal é estreito, os segmentos extras somem da direita pra esquerda — o essencial (modelo, barra, %, tokens) nunca cai.
+A barra tem **10 caracteres por padrão** (ajustável em `moodline config --bar=N`). A cor é interpolada de forma contínua no espaço HSL, do verde (matiz 120°) ao vermelho (0°). O emoji vai de 😎 (tranquilo) a 💀 (hora de dar `/clear`). Os tokens aparecem como **`usado/janela`** (ex.: `477k/1M`), então dá pra ver na hora se a sessão é Opus **1M** ou **200k**. Quando o terminal é estreito, os segmentos extras somem da direita pra esquerda — o essencial (modelo, barra, %, tokens) nunca cai.
 
 ## Instalação
 
@@ -100,6 +104,34 @@ moodline disable --all         # desliga em todas
 
 `disable` só remove a chave `statusLine` do `settings.json`; o engine e o `config.json` ficam, então `enable` volta na hora.
 
+### Escolher o que aparece (sem sair da sessão)
+
+`moodline config` liga/desliga cada segmento e ajusta a barra. Atualiza **ao vivo** — a statusline relê o config no próximo refresh, sem reiniciar:
+
+```bash
+moodline config                       # menu interativo (features, tamanho, layout)
+moodline config --off cost,rate       # desliga segmentos
+moodline config --toggle git          # alterna um
+moodline config --bar=8 --layout=multi
+moodline config --show                # mostra o config atual
+```
+
+Dentro do **Claude Code** dá pra fazer isso sem sair: o `init` instala o slash command `/moodline`. Digite `/moodline desliga o custo` (ou só `/moodline`) que ele aplica o `moodline config` por você. No Copilot CLI, use o `moodline config` no terminal.
+
+### Atualização
+
+O moodline checa o npm em background (no máx. 1×/dia, sem travar a barra). Quando há versão nova, aparece um `⬆ vX.Y.Z` discreto na barra. Pra atualizar:
+
+```bash
+moodline update     # atualiza o pacote global + o engine de cada CLI
+```
+
+`moodline doctor` também mostra se há atualização. Dentro do Claude Code: `/moodline update`.
+
+### Sobre o JDI
+
+De vez em quando, no lugar do trocadilho, a barra menciona o [jdi-cli](https://www.npmjs.com/package/jdi-cli) (um companheiro de SDD). Se você já tem o JDI instalado (no projeto ou global), em vez do anúncio ela te avisa quando sai uma versão nova dele. Essa menção é intencional e não é configurável.
+
 ## Configuração manual
 
 O `init` faz tudo, mas se preferir na mão — `~/.claude/settings.json`:
@@ -122,7 +154,7 @@ O `config.json`:
 ```json
 {
   "layout": "single",
-  "bar": { "width": 20 },
+  "bar": { "width": 10 },
   "punRotateMs": 30000,
   "features": { "git": true, "cost": true, "rate": true, "puns": true }
 }
@@ -144,20 +176,22 @@ O `config.json`:
 ```bash
 git clone https://github.com/slipalison/moodline
 cd moodline
-npm test        # smoke tests (sem framework, só node)
+npm test            # testes (node:test nativo, zero deps)
+npm run coverage    # testes + gate de cobertura (linhas/funcs ≥ 90%, branches ≥ 80%)
 echo '{"model":{"display_name":"Opus"},"context_window":{"used_percentage":50,"total_input_tokens":100000}}' | node bin/moodline.js render
 ```
 
-Arquitetura (arquivos separados de propósito):
+Arquitetura (arquivos separados de propósito — SRP):
 
-- `lib/moodline-core.mjs` — engine (render + adapters + git). Importa só `./puns.mjs` e built-ins.
-- `lib/puns.mjs` — lista de trocadilhos PT-BR (o arquivo mais fácil de editar/crescer).
+- `lib/moodline-core.mjs` — engine: `buildLine()` (lógica pura, sem IO) + `render`/adapters/git. Importa só `./puns.mjs`, `./jdi.mjs` e built-ins.
+- `lib/puns.mjs` — trocadilhos PT-BR (o arquivo mais fácil de editar/crescer).
+- `lib/jdi.mjs` — divulgação do jdi-cli (anúncio/aviso de update).
 - `lib/logo.mjs` — logo ASCII + render com gradiente + animação de onda.
 - `lib/ui.mjs` — prompts interativos (multiselect/select/confirm) e spinner, em `node:readline` puro.
-- `lib/install.mjs` — instalar/enable/disable/uninstall (sempre user-level; aceita `home` pra testes).
+- `lib/install.mjs` — instalar/enable/disable/uninstall/config/update (sempre user-level; aceita `home` pra testes).
 - `bin/moodline.js` — dispatcher fino dos comandos.
 
-O `init` copia só os arquivos do engine (`moodline-core.mjs` + `puns.mjs`) pra dentro da CLI. Adicionar uma CLI = escrever um adapter `fromX(json)` em `moodline-core.mjs` que normaliza pro mesmo formato de estado.
+O `init` copia só os arquivos do engine (`moodline-core.mjs` + `puns.mjs` + `jdi.mjs`) pra dentro da CLI. Adicionar uma CLI = escrever um adapter `fromX(json)` em `moodline-core.mjs` que normaliza pro mesmo formato de estado. Veja o `CLAUDE.md` pras convenções (Clean Code, SOLID, testes).
 
 ### Release
 
