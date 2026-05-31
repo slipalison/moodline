@@ -1,53 +1,68 @@
-// Testes da divulgação do JDI (deteccao local/global, fetch, decisao do segmento).
+// Testes da deteccao do JDI por ARTEFATOS (.jdi/ no projeto, comandos jdi-* no runtime).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { localJdi, globalJdiVersion, fetchJdiLatest, jdiSegment } from '../lib/jdi.mjs';
+import { jdiInProject, jdiInRuntime, globalJdiVersion, fetchJdiLatest, jdiSegment } from '../lib/jdi.mjs';
 import { cmpVer } from '../lib/moodline-core.mjs';
 
 const COLORS = { MAGENTA: '', CYAN: '', DIM: '', RESET: '' };
 const tmp = () => mkdtempSync(join(tmpdir(), 'jdi-'));
+const writeFile = (p, c) => { mkdirSync(join(p, '..'), { recursive: true }); writeFileSync(p, c); };
 
-test('localJdi: node_modules com versão', () => {
+test('jdiInProject: pasta .jdi/ no cwd', () => {
   const cwd = tmp();
-  try {
-    mkdirSync(join(cwd, 'node_modules', 'jdi-cli'), { recursive: true });
-    writeFileSync(join(cwd, 'node_modules', 'jdi-cli', 'package.json'), JSON.stringify({ version: '2.0.0' }));
-    assert.deepEqual(localJdi(cwd), { installed: true, version: '2.0.0' });
-  } finally { rmSync(cwd, { recursive: true, force: true }); }
+  try { mkdirSync(join(cwd, '.jdi')); assert.equal(jdiInProject(cwd), true); }
+  finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 
-test('localJdi: declarado no package.json (sem node_modules)', () => {
-  const cwd = tmp();
-  try {
-    writeFileSync(join(cwd, 'package.json'), JSON.stringify({ devDependencies: { 'jdi-cli': '^1.0.0' } }));
-    assert.deepEqual(localJdi(cwd), { installed: true, version: null });
-  } finally { rmSync(cwd, { recursive: true, force: true }); }
-});
-
-test('localJdi: encontra subindo do subdiretório (node_modules na raiz)', () => {
+test('jdiInProject: .jdi/ na raiz, cwd num subdiretorio', () => {
   const root = tmp();
   try {
-    mkdirSync(join(root, 'node_modules', 'jdi-cli'), { recursive: true });
-    writeFileSync(join(root, 'node_modules', 'jdi-cli', 'package.json'), JSON.stringify({ version: '0.1.13' }));
-    const sub = join(root, 'src', 'deep', 'nested');
+    mkdirSync(join(root, '.jdi'));
+    const sub = join(root, 'src', 'deep');
     mkdirSync(sub, { recursive: true });
-    assert.deepEqual(localJdi(sub), { installed: true, version: '0.1.13' });
+    assert.equal(jdiInProject(sub), true);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('localJdi: ausente e cwd nulo', () => {
+test('jdiInProject: comandos jdi-* em .claude/commands do projeto', () => {
   const cwd = tmp();
   try {
-    writeFileSync(join(cwd, 'package.json'), JSON.stringify({ dependencies: {} }));
-    assert.equal(localJdi(cwd).installed, false);
+    mkdirSync(join(cwd, '.claude', 'commands'), { recursive: true });
+    writeFileSync(join(cwd, '.claude', 'commands', 'jdi-do.md'), '# jdi-do');
+    assert.equal(jdiInProject(cwd), true);
   } finally { rmSync(cwd, { recursive: true, force: true }); }
-  assert.equal(localJdi(null).installed, false);
 });
 
-test('globalJdiVersion não lança (string|null)', () => {
+test('jdiInProject: ausente e cwd nulo', () => {
+  const cwd = tmp();
+  try { assert.equal(jdiInProject(cwd), false); }
+  finally { rmSync(cwd, { recursive: true, force: true }); }
+  assert.equal(jdiInProject(null), false);
+});
+
+test('jdiInRuntime: comandos jdi-* em ~/.claude', () => {
+  const home = tmp();
+  try {
+    mkdirSync(join(home, '.claude', 'commands'), { recursive: true });
+    writeFileSync(join(home, '.claude', 'commands', 'jdi-plan.md'), '# jdi-plan');
+    assert.equal(jdiInRuntime(home), true);
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
+test('jdiInRuntime: agentes jdi-* tambem contam; vazio = false', () => {
+  const home = tmp();
+  try {
+    assert.equal(jdiInRuntime(home), false);
+    mkdirSync(join(home, '.claude', 'agents'), { recursive: true });
+    writeFileSync(join(home, '.claude', 'agents', 'jdi-architect.md'), '# a');
+    assert.equal(jdiInRuntime(home), true);
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
+test('globalJdiVersion: nao lanca (string|null)', () => {
   const v = globalJdiVersion();
   assert.ok(v === null || typeof v === 'string');
 });
@@ -55,35 +70,45 @@ test('globalJdiVersion não lança (string|null)', () => {
 test('fetchJdiLatest: stub sucesso e falha', async () => {
   const real = globalThis.fetch;
   try {
-    globalThis.fetch = async () => ({ ok: true, json: async () => ({ version: '3.1.4' }) });
-    assert.equal(await fetchJdiLatest(), '3.1.4');
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ version: '0.1.13' }) });
+    assert.equal(await fetchJdiLatest(), '0.1.13');
     globalThis.fetch = async () => ({ ok: false });
     assert.equal(await fetchJdiLatest(), null);
   } finally { globalThis.fetch = real; }
 });
 
-test('jdiSegment: instalado com update disponível', () => {
-  const cwd = tmp();
+test('jdiSegment: JDI presente no projeto -> sem anuncio', () => {
+  const cwd = tmp(); const home = tmp();
   try {
-    mkdirSync(join(cwd, 'node_modules', 'jdi-cli'), { recursive: true });
-    writeFileSync(join(cwd, 'node_modules', 'jdi-cli', 'package.json'), JSON.stringify({ version: '1.0.0' }));
-    const seg = jdiSegment({ cwd, cache: { jdiLatest: '1.2.0' }, cmpVer, colors: COLORS });
+    mkdirSync(join(cwd, '.jdi'));
+    assert.equal(jdiSegment({ cwd, home, cache: {}, cmpVer, colors: COLORS }), null);
+  } finally { rmSync(cwd, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
+});
+
+test('jdiSegment: presente + instalador desatualizado -> aviso de update', () => {
+  const cwd = tmp(); const home = tmp();
+  try {
+    mkdirSync(join(cwd, '.jdi'));
+    const seg = jdiSegment({ cwd, home, cache: { jdiGlobal: '0.1.0', jdiLatest: '0.1.13' }, cmpVer, colors: COLORS });
     assert.ok(seg && seg.ad === false);
-    assert.match(seg.txt, /JDI v1\.2\.0/); assert.match(seg.txt, /npmjs\.com\/package\/jdi-cli/);
-  } finally { rmSync(cwd, { recursive: true, force: true }); }
+    assert.match(seg.txt, /JDI v0\.1\.13/); assert.match(seg.txt, /npmjs\.com\/package\/jdi-cli/);
+  } finally { rmSync(cwd, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
 });
 
-test('jdiSegment: instalado (global) e atualizado -> null', () => {
-  assert.equal(jdiSegment({ cwd: null, cache: { jdiGlobal: '2.0.0', jdiLatest: '2.0.0' }, cmpVer, colors: COLORS }), null);
-});
-
-test('jdiSegment: não instalado -> anúncio na janela certa, null fora dela', () => {
-  const cwd = tmp();
+test('jdiSegment: presente + instalador atual -> silencioso', () => {
+  const cwd = tmp(); const home = tmp();
   try {
-    writeFileSync(join(cwd, 'package.json'), JSON.stringify({}));
-    const ad = jdiSegment({ cwd, cache: {}, rotateMs: 1000, cmpVer, colors: COLORS, now: 0 }); // win 0 -> anúncio
+    mkdirSync(join(cwd, '.jdi'));
+    assert.equal(jdiSegment({ cwd, home, cache: { jdiGlobal: '0.1.13', jdiLatest: '0.1.13' }, cmpVer, colors: COLORS }), null);
+  } finally { rmSync(cwd, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
+});
+
+test('jdiSegment: ausente -> anuncio na janela certa, null fora dela', () => {
+  const cwd = tmp(); const home = tmp();
+  try {
+    const ad = jdiSegment({ cwd, home, cache: {}, rotateMs: 1000, cmpVer, colors: COLORS, now: 0 });
     assert.ok(ad && ad.ad === true);
     assert.match(ad.txt, /npmjs\.com\/package\/jdi-cli/);
-    assert.equal(jdiSegment({ cwd, cache: {}, rotateMs: 1000, cmpVer, colors: COLORS, now: 1000 }), null); // win 1 -> null
-  } finally { rmSync(cwd, { recursive: true, force: true }); }
+    assert.equal(jdiSegment({ cwd, home, cache: {}, rotateMs: 1000, cmpVer, colors: COLORS, now: 1000 }), null);
+  } finally { rmSync(cwd, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
 });
