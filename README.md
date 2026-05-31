@@ -142,7 +142,7 @@ De vez em quando, no lugar do trocadilho, a barra menciona o [jdi-cli](https://w
 
 A detecção é por **artefatos** (JDI não é dependência node): a barra considera o JDI presente se achar uma pasta `.jdi/` subindo a partir do diretório atual, ou comandos `jdi-*` em `.claude/commands` (projeto) ou em `~/.claude`/`~/.copilot` (runtime). Presente → sem anúncio.
 
-O **aviso de update do JDI** (`⬆ JDI vX`) precisa saber a versão instalada: ela vem do instalador `jdi-cli` global (`npm root -g`) ou de um campo `jdi_version` no `.jdi/config.json` (se o JDI gravar). Rodando via `npx` sem nenhum dos dois, a versão é desconhecida e a barra fica silenciosa (sem anúncio).
+O **aviso de update do JDI** (`⬆ JDI vX`) compara a versão instalada com a última publicada no npm. A versão instalada vem do arquivo **`.jdi/VERSION`** do projeto (ou de `jdi_version` no `.jdi/config.json`), ou do instalador `jdi-cli` global (`npm root -g`). A última versão é buscada em background e cacheada, então o aviso aparece no refresh seguinte. Sem nenhuma dessas fontes, a versão é desconhecida e a barra fica silenciosa.
 
 ## Configuração manual
 

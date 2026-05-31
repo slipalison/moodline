@@ -43,15 +43,18 @@ test('jdiInProject: ausente e cwd nulo', () => {
   assert.equal(jdiInProject(null), false);
 });
 
-test('jdiProjectVersion: lê jdi_version do .jdi/config.json (subindo); null só com schema', () => {
+test('jdiProjectVersion: .jdi/VERSION tem prioridade; config é fallback; sobe do subdir', () => {
   const root = tmp();
   try {
     mkdirSync(join(root, '.jdi'));
     writeFileSync(join(root, '.jdi', 'config.json'), JSON.stringify({ $schema_version: '1.1' }));
-    assert.equal(jdiProjectVersion(root), null); // schema de estado != release
+    assert.equal(jdiProjectVersion(root), null); // só schema de estado, não release
     writeFileSync(join(root, '.jdi', 'config.json'), JSON.stringify({ jdi_version: '0.1.0' }));
+    assert.equal(jdiProjectVersion(root), '0.1.0'); // fallback via config
+    writeFileSync(join(root, '.jdi', 'VERSION'), '0.1.12\n');
+    assert.equal(jdiProjectVersion(root), '0.1.12'); // VERSION ganha
     const sub = join(root, 'a', 'b'); mkdirSync(sub, { recursive: true });
-    assert.equal(jdiProjectVersion(sub), '0.1.0');
+    assert.equal(jdiProjectVersion(sub), '0.1.12'); // sobe do subdir
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
