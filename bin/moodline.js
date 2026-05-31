@@ -140,7 +140,13 @@ async function cmdUpdate(opts) {
   const sp = ui.spinner(`npm i -g ${target}`);
   const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'; // evita shell:true (DEP0190)
   const r = spawnSync(npmCmd, ['i', '-g', target], { stdio: 'ignore' });
-  sp.stop(r.status === 0, r.status === 0 ? 'pacote global atualizado' : `npm i -g ${target} falhou — rode manualmente`);
+  sp.stop(r.status === 0, r.status === 0 ? 'pacote global atualizado' : `npm não instalou ${target}`);
+  if (r.status !== 0) {
+    // nao segue pro refresh nem finge sucesso: o engine ficaria na versao antiga
+    console.log(`${C.yellow}!${C.reset} Pode ser propagação do npm logo após o release. Tente de novo em ~1 min, ou:`);
+    console.log(`  ${C.cyan}npm cache clean --force && npm i -g ${target} && moodline update --force${C.reset}`);
+    return;
+  }
   for (const key of install.configuredKeys(opts.home)) {
     try { install.refreshEngine(key, opts.home); console.log(`${C.green}✓${C.reset} ${install.targets(opts.home)[key].label}: engine atualizado`); }
     catch (e) { console.log(`${C.yellow}!${C.reset} ${e.message}`); }

@@ -2,6 +2,14 @@
   <img src="assets/moodline.svg" alt="moodline" width="640">
 </p>
 
+<p align="center">
+  <a href="https://www.npmjs.com/package/moodline"><img src="https://img.shields.io/npm/v/moodline?color=cb3837&logo=npm" alt="npm version"></a>
+  <a href="https://github.com/slipalison/moodline/actions/workflows/ci.yml"><img src="https://github.com/slipalison/moodline/actions/workflows/ci.yml/badge.svg" alt="ci"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/npm/l/moodline?color=blue" alt="license"></a>
+  <img src="https://img.shields.io/badge/deps-0-brightgreen" alt="zero dependencies">
+  <img src="https://img.shields.io/badge/coverage-%E2%89%A590%25-brightgreen" alt="coverage">
+</p>
+
 # 🌿 moodline
 
 > Statusline divertida e informativa para CLIs de IA. Barra de contexto em gradiente, emoji que reage à ocupação, git, custo da sessão e trocadilhos de dev — instalável com um comando.
@@ -130,7 +138,11 @@ moodline update     # atualiza o pacote global + o engine de cada CLI
 
 ### Sobre o JDI
 
-De vez em quando, no lugar do trocadilho, a barra menciona o [jdi-cli](https://www.npmjs.com/package/jdi-cli) (um companheiro de SDD). Se você já tem o JDI instalado (no projeto ou global), em vez do anúncio ela te avisa quando sai uma versão nova dele. Essa menção é intencional e não é configurável.
+De vez em quando, no lugar do trocadilho, a barra menciona o [jdi-cli](https://www.npmjs.com/package/jdi-cli) (um workflow de SDD pra IA). Essa menção é intencional e não é configurável.
+
+A detecção é por **artefatos** (JDI não é dependência node): a barra considera o JDI presente se achar uma pasta `.jdi/` subindo a partir do diretório atual, ou comandos `jdi-*` em `.claude/commands` (projeto) ou em `~/.claude`/`~/.copilot` (runtime). Presente → sem anúncio.
+
+O **aviso de update do JDI** (`⬆ JDI vX`) precisa saber a versão instalada: ela vem do instalador `jdi-cli` global (`npm root -g`) ou de um campo `jdi_version` no `.jdi/config.json` (se o JDI gravar). Rodando via `npx` sem nenhum dos dois, a versão é desconhecida e a barra fica silenciosa (sem anúncio).
 
 ## Configuração manual
 

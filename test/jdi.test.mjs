@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { jdiInProject, jdiInRuntime, globalJdiVersion, fetchJdiLatest, jdiSegment } from '../lib/jdi.mjs';
+import { jdiInProject, jdiProjectVersion, jdiInRuntime, globalJdiVersion, fetchJdiLatest, jdiSegment } from '../lib/jdi.mjs';
 import { cmpVer } from '../lib/moodline-core.mjs';
 
 const COLORS = { MAGENTA: '', CYAN: '', DIM: '', RESET: '' };
@@ -41,6 +41,29 @@ test('jdiInProject: ausente e cwd nulo', () => {
   try { assert.equal(jdiInProject(cwd), false); }
   finally { rmSync(cwd, { recursive: true, force: true }); }
   assert.equal(jdiInProject(null), false);
+});
+
+test('jdiProjectVersion: lê jdi_version do .jdi/config.json (subindo); null só com schema', () => {
+  const root = tmp();
+  try {
+    mkdirSync(join(root, '.jdi'));
+    writeFileSync(join(root, '.jdi', 'config.json'), JSON.stringify({ $schema_version: '1.1' }));
+    assert.equal(jdiProjectVersion(root), null); // schema de estado != release
+    writeFileSync(join(root, '.jdi', 'config.json'), JSON.stringify({ jdi_version: '0.1.0' }));
+    const sub = join(root, 'a', 'b'); mkdirSync(sub, { recursive: true });
+    assert.equal(jdiProjectVersion(sub), '0.1.0');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('jdiSegment: aviso de update via versão do projeto (sem instalador global)', () => {
+  const cwd = tmp(); const home = tmp();
+  try {
+    mkdirSync(join(cwd, '.jdi'));
+    writeFileSync(join(cwd, '.jdi', 'config.json'), JSON.stringify({ jdi_version: '0.1.0' }));
+    const seg = jdiSegment({ cwd, home, cache: { jdiLatest: '0.1.13' }, cmpVer, colors: COLORS });
+    assert.ok(seg && seg.ad === false);
+    assert.match(seg.txt, /JDI v0\.1\.13/);
+  } finally { rmSync(cwd, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
 });
 
 test('jdiInRuntime: comandos jdi-* em ~/.claude', () => {
