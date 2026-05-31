@@ -139,16 +139,28 @@ test('jdiSegment: ausente -> anuncio na janela certa, null fora dela', () => {
   } finally { rmSync(cwd, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
 });
 
-test('jdiSegment: anúncio cicla 4 efeitos visuais (não repetitivo)', () => {
+test('jdiSegment: anúncios diferentes usam efeitos diferentes (cobre os 4)', () => {
   const cwd = tmp(); const home = tmp();
   try {
-    const txts = [0, 6000, 12000, 18000].map((now) => { // estilos 0..3, todos com win%3==0
+    const txts = [0, 3000, 6000, 9000].map((now) => { // adIndex 0,1,2,3 -> os 4 efeitos
       const s = jdiSegment({ cwd, home, cache: {}, rotateMs: 1000, cmpVer, colors: COLORS, now });
       assert.ok(s && s.ad === true);
       assert.match(s.txt, /npmjs\.com\/package\/jdi-cli/);
-      assert.match(s.txt, /\x1b\[/); // tem ANSI (efeito visual)
+      assert.match(s.txt, /\x1b\[/);
       return s.txt;
     });
-    assert.equal(new Set(txts).size, 4, 'os 4 efeitos produzem saídas distintas');
+    assert.equal(new Set(txts).size, 4, 'efeitos distintos por anúncio');
+  } finally { rmSync(cwd, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
+});
+
+test('jdiSegment: efeito é FIXO durante o anúncio; só o frame anima', () => {
+  const cwd = tmp(); const home = tmp();
+  const big = 1000000; // mesma janela (mesmo adIndex) -> mesmo efeito
+  try {
+    const a = jdiSegment({ cwd, home, cache: {}, rotateMs: big, cmpVer, colors: COLORS, now: 0 });
+    const b = jdiSegment({ cwd, home, cache: {}, rotateMs: big, cmpVer, colors: COLORS, now: 2000 });
+    assert.ok(a && b && a.ad && b.ad);
+    assert.match(a.txt, /[✦✧⋆✺]/); assert.match(b.txt, /[✦✧⋆✺]/); // mesmo efeito (pulse) nos dois t
+    assert.notEqual(a.txt, b.txt);                                  // frame animou
   } finally { rmSync(cwd, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
 });
