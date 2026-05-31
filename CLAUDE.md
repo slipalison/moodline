@@ -40,7 +40,7 @@ CLI → JSON no stdin → `from<Cli>(json)` normaliza pro **estado único** → 
 
 ### Segmentos e prioridade
 
-`render` monta o núcleo (sempre presente) + opcionais com `prio` (menor = cai por último quando estreito): update(1) → jdi(2) → git(1) → cost(2) → rate(3) → puns(4). Ao adicionar segmento, defina `prio`.
+`render` monta o núcleo (sempre presente) + opcionais, cada um com `prio` (ordem de queda no single quando estreito) e `line` (no layout `multi`: `line 1` = núcleo + métricas = update/cost/rate; `line 2` = git/jdi/puns). No single o `line` é ignorado e cai por `prio`. Ao adicionar segmento, defina `prio` e `line`.
 
 ### Update e JDI (não-opcionais)
 

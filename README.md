@@ -124,6 +124,8 @@ moodline config --bar=8 --layout=multi
 moodline config --show                 # mostra o config atual
 ```
 
+No layout `multi` (2 linhas): **linha 1** = núcleo + métricas (custo/tempo/linhas, rate, update); **linha 2** = git/branch, JDI e trocadilho.
+
 Dentro do **Claude Code**, o `init` instala o slash command `/moodline`. Digite só `/moodline` que ele abre um **menu interativo** (o seletor de múltipla escolha do próprio Claude Code, via AskUserQuestion) pra marcar features, tamanho e layout — e aplica sozinho. Ou seja direto: `/moodline desliga o custo`. No **Copilot CLI** não há esse seletor nativo: use `/moodline` em texto ou o TUI do `moodline config` no terminal.
 
 ### Atualização

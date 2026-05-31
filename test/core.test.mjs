@@ -111,6 +111,16 @@ test('layout multi gera 2 linhas', () => {
   assert.ok(render(fromClaude(claudeJson), { ...wide(), layout: 'multi' }).includes('\n'));
 });
 
+test('layout multi: custo/rate na linha 1 (núcleo); git e pun na linha 2', () => {
+  const s = { model: 'M', pct: 10, tokens: 1000, ctxSize: 200000, costUsd: 1.2, durationMs: 60000, rate: { five: 40, seven: 10 }, git: { branch: 'main' } };
+  const out = render(s, { ...DEFAULT_CFG, layout: 'multi', width: 200, features: { git: true, cost: true, rate: true, puns: true } });
+  const [l1, l2] = out.split('\n');
+  assert.match(l1, /\$1\.20/); assert.match(l1, /5h 40%/);     // custo + rate na linha 1
+  assert.doesNotMatch(l1, /main/);                              // branch NÃO na linha 1
+  assert.match(l2, /main/); assert.match(l2, /💬/);             // branch + pun na linha 2
+  assert.doesNotMatch(strip(l2), /\$1\.20/);
+});
+
 test('truncamento: largura estreita mantém só o núcleo', () => {
   const out = strip(render(fromClaude(claudeJson), { ...DEFAULT_CFG, width: 28 }));
   assert.ok(out.length <= 40, `len=${out.length}`); assert.match(out, /Opus/);
