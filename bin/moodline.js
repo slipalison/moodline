@@ -137,9 +137,11 @@ async function cmdUpdate(opts) {
   console.log(`${C.cyan}↑${C.reset} Atualizando moodline ${cur} → ${latest || 'latest'}…`);
   // versao EXATA (nao @latest): burla o cache do dist-tag 'latest' do npm logo apos um release
   const target = latest ? `moodline@${latest}` : 'moodline@latest';
-  const sp = ui.spinner(`npm i -g ${target}`);
-  const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'; // evita shell:true (DEP0190)
-  const r = spawnSync(npmCmd, ['i', '-g', target], { stdio: 'ignore' });
+  const cmd = `npm i -g ${target}`;
+  const sp = ui.spinner(cmd);
+  // shell:true com o comando em STRING (sem array de args): roda o npm.cmd no Windows (Node nao
+  // executa .cmd sem shell) E nao dispara o DEP0190 (que e sobre args-array + shell:true).
+  const r = spawnSync(cmd, { stdio: 'ignore', shell: true });
   sp.stop(r.status === 0, r.status === 0 ? 'pacote global atualizado' : `npm não instalou ${target}`);
   if (r.status !== 0) {
     // nao segue pro refresh nem finge sucesso: o engine ficaria na versao antiga
