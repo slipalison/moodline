@@ -138,3 +138,17 @@ test('jdiSegment: ausente -> anuncio na janela certa, null fora dela', () => {
     assert.equal(jdiSegment({ cwd, home, cache: {}, rotateMs: 1000, cmpVer, colors: COLORS, now: 1000 }), null);
   } finally { rmSync(cwd, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
 });
+
+test('jdiSegment: anúncio cicla 4 efeitos visuais (não repetitivo)', () => {
+  const cwd = tmp(); const home = tmp();
+  try {
+    const txts = [0, 6000, 12000, 18000].map((now) => { // estilos 0..3, todos com win%3==0
+      const s = jdiSegment({ cwd, home, cache: {}, rotateMs: 1000, cmpVer, colors: COLORS, now });
+      assert.ok(s && s.ad === true);
+      assert.match(s.txt, /npmjs\.com\/package\/jdi-cli/);
+      assert.match(s.txt, /\x1b\[/); // tem ANSI (efeito visual)
+      return s.txt;
+    });
+    assert.equal(new Set(txts).size, 4, 'os 4 efeitos produzem saídas distintas');
+  } finally { rmSync(cwd, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
+});
