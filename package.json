@@ -1,6 +1,6 @@
 {
   "name": "moodline",
-  "version": "0.3.15",
+  "version": "0.3.16",
   "description": "Statusline divertida e informativa para CLIs de IA (Claude Code, GitHub Copilot CLI e mais): barra de contexto em gradiente, emoji-humor, git, custo e trocadilhos de dev.",
   "type": "module",
   "bin": {
