@@ -4,9 +4,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PassThrough } from 'node:stream';
 import {
   render, buildLine, fromClaude, fromCopilot, fromOpenCode, fromGemini,
-  attachGit, loadConfig, cmpVer, updateBadge, maybeSpawnCheck, doUpdateCheck, DEFAULT_CFG,
+  attachGit, loadConfig, cmpVer, updateBadge, maybeSpawnCheck, doUpdateCheck, readStdin, DEFAULT_CFG,
 } from '../lib/moodline-core.mjs';
 
 // Cache de update "fresco" por padrão → buildLine() não dispara processo filho nos testes.
@@ -187,6 +188,31 @@ test('updateBadge: cache sem campo latest -> null', () => {
     writeFileSync(cache, JSON.stringify({ checkedAt: Date.now() }));
     assert.equal(updateBadge({ version: '0.1.0' }), null);
   } finally { process.env.MOODLINE_UPDATE_CACHE = FRESH; rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('readStdin: resolve com os dados quando vem EOF (end)', async () => {
+  const s = new PassThrough();
+  const p = readStdin(s, 1000);
+  s.write('{"model":'); s.write('{}}'); s.end();
+  assert.equal(await p, '{"model":{}}');
+});
+
+test('readStdin: watchdog resolve mesmo SEM EOF (pipe sem fim — bug do Windows)', async () => {
+  const s = new PassThrough();
+  const p = readStdin(s, 40); // timeout curto; NUNCA chamamos s.end()
+  s.write('parcial');
+  assert.equal(await p, 'parcial'); // resolve pelo watchdog, nao trava
+});
+
+test('readStdin: TTY resolve vazio na hora', async () => {
+  assert.equal(await readStdin({ isTTY: true }), '');
+});
+
+test('readStdin: erro no stream nao rejeita (resolve o que tinha)', async () => {
+  const s = new PassThrough();
+  const p = readStdin(s, 1000);
+  s.write('x'); s.emit('error', new Error('boom'));
+  assert.equal(await p, 'x');
 });
 
 test('cmpVer compara semver', () => {
