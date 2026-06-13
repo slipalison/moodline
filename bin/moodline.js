@@ -18,15 +18,14 @@ import { render, ADAPTERS, attachGit, loadConfig, fromOpenCode, cmpVer } from '.
 import * as ui from '../lib/ui.mjs';
 import { printLogo, smallLogo } from '../lib/logo.mjs';
 import * as install from '../lib/install.mjs';
+import { validatePackageName, sanitizeForLog } from '../lib/sanitize.mjs';
 
 const C = ui.C;
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PKG = JSON.parse(readFileSync(join(HERE, '..', 'package.json'), 'utf8'));
 
-// ---- seguranca ----
-// Versao limpa pra exibir/usar: so [0-9 . -], sem CR/LF/controle (anti log-injection) e curta.
+// ---- seguranca (validacao/sanitizacao centralizadas em ../lib/sanitize.mjs) ----
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
-const cleanVer = (v) => String(v ?? '').replace(/[^\w.-]/g, '').slice(0, 32);
 
 // Caminho do npm-cli.js ao lado do node em execucao (sem depender do PATH).
 function npmCliPath() {
@@ -38,13 +37,15 @@ function npmCliPath() {
 }
 
 // Instala um pacote global SEM shell: `node npm-cli.js install -g <pkg>` (comando e args separados).
-// Evita command injection (sem shell:true + concatenacao) E roda no Windows (Node nao executa .cmd
-// sem shell; aqui rodamos o .js direto com o node atual). `pkg` ja vem validado (SEMVER).
+// `pkg` passa por validatePackageName (allowlist) ANTES do spawn -> nenhuma entrada nao validada
+// chega ao processo filho (sem command injection); shell:false explicito. Roda no Windows (node
+// executa o .js direto, sem depender do .cmd).
 function installGlobal(pkg) {
+  const safe = validatePackageName(pkg);
   const cli = npmCliPath();
   return cli
-    ? spawnSync(process.execPath, [cli, 'install', '-g', pkg], { stdio: 'ignore' })
-    : spawnSync('npm', ['install', '-g', pkg], { stdio: 'ignore' }); // fallback POSIX (npm no PATH)
+    ? spawnSync(process.execPath, [cli, 'install', '-g', safe], { stdio: 'ignore', shell: false })
+    : spawnSync('npm', ['install', '-g', safe], { stdio: 'ignore', shell: false }); // fallback POSIX
 }
 
 function parseArgs(argv) {
@@ -155,7 +156,7 @@ async function cmdDoctor(opts) {
     console.log(`  dir detectado: ${d.present ? 'sim' : 'não'}   statusline: ${statusLabel(d)}`);
   }
   const latest = await install.fetchLatest();
-  if (latest && cmpVer(latest, PKG.version) > 0) console.log(`\n${C.yellow}⬆ atualização disponível:${C.reset} v${PKG.version} → v${cleanVer(latest)}   rode ${C.cyan}moodline update${C.reset}`);
+  if (latest && cmpVer(latest, PKG.version) > 0) console.log(`\n${C.yellow}⬆ atualização disponível:${C.reset} v${PKG.version} → v${sanitizeForLog(latest)}   rode ${C.cyan}moodline update${C.reset}`);
   else if (latest) console.log(`\n${C.green}✓ na última versão${C.reset} (v${PKG.version})`);
 }
 
@@ -167,14 +168,15 @@ async function cmdUpdate(opts) {
   // garante que nenhum dado de rede chegue ao processo sem passar por allowlist (SEMVER).
   const ver = SEMVER.test(String(latest ?? '')) ? latest : null;
   const target = ver ? `moodline@${ver}` : 'moodline@latest';
-  console.log(`${C.cyan}↑${C.reset} Atualizando moodline ${cleanVer(cur)} → ${ver || 'latest'}…`);
-  const sp = ui.spinner(`npm install -g ${target}`);
-  const r = installGlobal(target); // comando + args separados, SEM shell -> sem command injection
-  sp.stop(r.status === 0 ? 'pacote global atualizado' : `npm não instalou ${target}`, r.status === 0);
+  const targetLog = sanitizeForLog(target); // valor seguro pra exibir (anti log-injection)
+  console.log(`${C.cyan}↑${C.reset} Atualizando moodline ${sanitizeForLog(cur)} → ${sanitizeForLog(ver || 'latest')}…`);
+  const sp = ui.spinner(`npm install -g ${targetLog}`);
+  const r = installGlobal(target); // pkg validado por allowlist dentro de installGlobal
+  sp.stop(r.status === 0 ? 'pacote global atualizado' : `npm não instalou ${targetLog}`, r.status === 0);
   if (r.status !== 0) {
     // nao segue pro refresh nem finge sucesso: o engine ficaria na versao antiga
     console.log(`${C.yellow}!${C.reset} Pode ser propagação do npm logo após o release. Tente de novo em ~1 min, ou:`);
-    console.log(`  ${C.cyan}npm cache clean --force && npm install -g ${target} && moodline update --force${C.reset}`);
+    console.log(`  ${C.cyan}npm cache clean --force && npm install -g ${targetLog} && moodline update --force${C.reset}`);
     return;
   }
   for (const key of install.configuredKeys(opts.home)) {
