@@ -10,7 +10,7 @@
 //   moodline watch              [experimental] poller pro OpenCode
 //   moodline --help|--version
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +22,30 @@ import * as install from '../lib/install.mjs';
 const C = ui.C;
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PKG = JSON.parse(readFileSync(join(HERE, '..', 'package.json'), 'utf8'));
+
+// ---- seguranca ----
+// Versao limpa pra exibir/usar: so [0-9 . -], sem CR/LF/controle (anti log-injection) e curta.
+const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const cleanVer = (v) => String(v ?? '').replace(/[^\w.-]/g, '').slice(0, 32);
+
+// Caminho do npm-cli.js ao lado do node em execucao (sem depender do PATH).
+function npmCliPath() {
+  const exeDir = dirname(process.execPath);
+  const candidates = process.platform === 'win32'
+    ? [join(exeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js')]
+    : [join(exeDir, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js')];
+  return candidates.find((p) => existsSync(p)) || null;
+}
+
+// Instala um pacote global SEM shell: `node npm-cli.js install -g <pkg>` (comando e args separados).
+// Evita command injection (sem shell:true + concatenacao) E roda no Windows (Node nao executa .cmd
+// sem shell; aqui rodamos o .js direto com o node atual). `pkg` ja vem validado (SEMVER).
+function installGlobal(pkg) {
+  const cli = npmCliPath();
+  return cli
+    ? spawnSync(process.execPath, [cli, 'install', '-g', pkg], { stdio: 'ignore' })
+    : spawnSync('npm', ['install', '-g', pkg], { stdio: 'ignore' }); // fallback POSIX (npm no PATH)
+}
 
 function parseArgs(argv) {
   const o = { _: [] };
@@ -72,8 +96,8 @@ async function cmdInit(opts) {
   for (const key of keys) {
     const t = install.targets(home)[key];
     const sp = ui.spinner(`Configurando ${t.label}…`);
-    try { install.configure(key, { features, layout, home }); sp.stop(true, `${t.label} ${C.green}pronto${C.reset}`); }
-    catch (e) { sp.stop(false, `${t.label}: ${e.message}`); }
+    try { install.configure(key, { features, layout, home }); sp.stop(`${t.label} ${C.green}pronto${C.reset}`); }
+    catch (e) { sp.stop(`${t.label}: ${e.message}`, false); }
   }
   postInstall(keys);
 }
@@ -118,15 +142,20 @@ function cmdUninstall(opts) {
   }
 }
 
+function statusLabel(d) {
+  if (d.wired) return `${C.green}ativa${C.reset}`;
+  if (d.engine) return `${C.yellow}configurada, desligada${C.reset}`;
+  return `${C.dim}não instalada${C.reset}`;
+}
+
 async function cmdDoctor(opts) {
   console.log(`${smallLogo()} ${C.dim}v${PKG.version}${C.reset}\n`);
   for (const d of install.detectInstalled(opts.home)) {
-    const state = d.wired ? `${C.green}ativa${C.reset}` : d.engine ? `${C.yellow}configurada, desligada${C.reset}` : `${C.dim}não instalada${C.reset}`;
     console.log(`${C.bold}${d.label}${C.reset}`);
-    console.log(`  dir detectado: ${d.present ? 'sim' : 'não'}   statusline: ${state}`);
+    console.log(`  dir detectado: ${d.present ? 'sim' : 'não'}   statusline: ${statusLabel(d)}`);
   }
   const latest = await install.fetchLatest();
-  if (latest && cmpVer(latest, PKG.version) > 0) console.log(`\n${C.yellow}⬆ atualização disponível:${C.reset} v${PKG.version} → v${latest}   rode ${C.cyan}moodline update${C.reset}`);
+  if (latest && cmpVer(latest, PKG.version) > 0) console.log(`\n${C.yellow}⬆ atualização disponível:${C.reset} v${PKG.version} → v${cleanVer(latest)}   rode ${C.cyan}moodline update${C.reset}`);
   else if (latest) console.log(`\n${C.green}✓ na última versão${C.reset} (v${PKG.version})`);
 }
 
@@ -134,19 +163,18 @@ async function cmdUpdate(opts) {
   const latest = await install.fetchLatest();
   const cur = PKG.version;
   if (latest && cmpVer(latest, cur) <= 0 && !opts.force) { console.log(`${C.green}✓${C.reset} moodline já está na última versão (v${cur}).`); return; }
-  console.log(`${C.cyan}↑${C.reset} Atualizando moodline ${cur} → ${latest || 'latest'}…`);
-  // versao EXATA (nao @latest): burla o cache do dist-tag 'latest' do npm logo apos um release
-  const target = latest ? `moodline@${latest}` : 'moodline@latest';
-  const cmd = `npm i -g ${target}`;
-  const sp = ui.spinner(cmd);
-  // shell:true com o comando em STRING (sem array de args): roda o npm.cmd no Windows (Node nao
-  // executa .cmd sem shell) E nao dispara o DEP0190 (que e sobre args-array + shell:true).
-  const r = spawnSync(cmd, { stdio: 'ignore', shell: true });
-  sp.stop(r.status === 0, r.status === 0 ? 'pacote global atualizado' : `npm não instalou ${target}`);
+  // versao EXATA e VALIDADA (nao @latest): burla o cache do dist-tag logo apos um release e
+  // garante que nenhum dado de rede chegue ao processo sem passar por allowlist (SEMVER).
+  const ver = SEMVER.test(String(latest ?? '')) ? latest : null;
+  const target = ver ? `moodline@${ver}` : 'moodline@latest';
+  console.log(`${C.cyan}↑${C.reset} Atualizando moodline ${cleanVer(cur)} → ${ver || 'latest'}…`);
+  const sp = ui.spinner(`npm install -g ${target}`);
+  const r = installGlobal(target); // comando + args separados, SEM shell -> sem command injection
+  sp.stop(r.status === 0 ? 'pacote global atualizado' : `npm não instalou ${target}`, r.status === 0);
   if (r.status !== 0) {
     // nao segue pro refresh nem finge sucesso: o engine ficaria na versao antiga
     console.log(`${C.yellow}!${C.reset} Pode ser propagação do npm logo após o release. Tente de novo em ~1 min, ou:`);
-    console.log(`  ${C.cyan}npm cache clean --force && npm i -g ${target} && moodline update --force${C.reset}`);
+    console.log(`  ${C.cyan}npm cache clean --force && npm install -g ${target} && moodline update --force${C.reset}`);
     return;
   }
   for (const key of install.configuredKeys(opts.home)) {
@@ -161,7 +189,7 @@ function cmdRender(opts) {
   const cfg = loadConfig(opts.config);
   for (const k of ALL_FEATURES) if (opts[`no-${k}`]) cfg.features[k] = false;
   if (opts.multi) cfg.layout = 'multi';
-  if (opts.width) cfg.width = parseInt(opts.width, 10) || undefined;
+  if (opts.width) cfg.width = Number.parseInt(opts.width, 10) || undefined;
 
   let raw = '';
   try { raw = readFileSync(0, 'utf8'); } catch {}
@@ -176,7 +204,7 @@ function cmdRender(opts) {
 async function cmdWatch(opts) {
   const url = opts.url || `http://127.0.0.1:${opts.port || 4096}/session`;
   const cfg = loadConfig(opts.config);
-  const interval = (parseInt(opts.interval, 10) || 2) * 1000;
+  const interval = (Number.parseInt(opts.interval, 10) || 2) * 1000;
   console.log(`${C.yellow}[experimental]${C.reset} OpenCode watch: GET ${url}`);
   const tick = async () => {
     try {
@@ -195,59 +223,75 @@ function barPreview(n) {
   const edge = Math.min(2, Math.max(0, n - full));
   return '[' + '█'.repeat(full) + '▒'.repeat(edge) + '░'.repeat(Math.max(0, n - full - edge)) + ']';
 }
+// CSV de features valida (descarta vazios e nomes desconhecidos).
+const csvFeatures = (v) => String(v).split(',').map((s) => s.trim()).filter((f) => ALL_FEATURES.includes(f));
+function setFeatures(features, raw, valueFor) {
+  for (const f of csvFeatures(raw)) features[f] = valueFor(features[f]);
+}
 function applyConfigFlags(cfg, opts) {
-  const list = (v) => String(v).split(',').map((s) => s.trim()).filter(Boolean);
-  if (opts.on) for (const f of list(opts.on)) if (ALL_FEATURES.includes(f)) cfg.features[f] = true;
-  if (opts.off) for (const f of list(opts.off)) if (ALL_FEATURES.includes(f)) cfg.features[f] = false;
-  if (opts.toggle) for (const f of list(opts.toggle)) if (ALL_FEATURES.includes(f)) cfg.features[f] = !cfg.features[f];
-  if (opts.bar !== undefined) cfg.bar = { width: parseInt(opts.bar, 10) || 10 };
+  if (opts.on) setFeatures(cfg.features, opts.on, () => true);
+  if (opts.off) setFeatures(cfg.features, opts.off, () => false);
+  if (opts.toggle) setFeatures(cfg.features, opts.toggle, (cur) => !cur);
+  if (opts.bar !== undefined) cfg.bar = { width: Number.parseInt(opts.bar, 10) || 10 };
   if (opts.layout) cfg.layout = opts.layout === 'multi' ? 'multi' : 'single';
-  if (opts.rotate) cfg.punRotateMs = parseInt(opts.rotate, 10) || 30000;
+  if (opts.rotate) cfg.punRotateMs = Number.parseInt(opts.rotate, 10) || 30000;
 }
 
-async function cmdConfig(opts) {
-  const home = opts.home;
+// Resolve em quais CLIs operar: flags --claude/--copilot/--cli, senao as configuradas. Só as que têm config.
+function resolveConfigKeys(opts, home) {
   let keys = ['claude', 'copilot'].filter((k) => opts[k]);
   if (opts.cli) keys = opts.cli === 'all' ? ['claude', 'copilot'] : [opts.cli];
   if (!keys.length) keys = install.configuredKeys(home);
-  keys = keys.filter((k) => install.readConfigFile(k, home));
-  if (!keys.length) { console.log(`${C.yellow}Nada configurado.${C.reset} Rode ${C.cyan}moodline init${C.reset}.`); return; }
+  return keys.filter((k) => install.readConfigFile(k, home));
+}
 
-  if (opts.show) {
-    for (const key of keys) {
-      const t = install.targets(home)[key];
-      const cfg = install.readConfigFile(key, home);
-      const on = ALL_FEATURES.filter((f) => cfg.features?.[f]);
-      const off = ALL_FEATURES.filter((f) => !cfg.features?.[f]);
-      console.log(`${C.bold}${t.label}${C.reset}`);
-      console.log(`  ligados:    ${on.length ? C.green + on.join(', ') + C.reset : C.dim + '—' + C.reset}`);
-      console.log(`  desligados: ${off.length ? C.dim + off.join(', ') + C.reset : C.dim + '—' + C.reset}`);
-      console.log(`  barra: ${cfg.bar?.width ?? 10} ${C.dim}${barPreview(cfg.bar?.width ?? 10)}${C.reset}   layout: ${cfg.layout || 'single'}`);
-    }
-    return;
+function showConfig(keys, home) {
+  for (const key of keys) {
+    const t = install.targets(home)[key];
+    const cfg = install.readConfigFile(key, home);
+    const on = ALL_FEATURES.filter((f) => cfg.features?.[f]);
+    const off = ALL_FEATURES.filter((f) => !cfg.features?.[f]);
+    console.log(`${C.bold}${t.label}${C.reset}`);
+    console.log(`  ligados:    ${on.length ? C.green + on.join(', ') + C.reset : C.dim + '—' + C.reset}`);
+    console.log(`  desligados: ${off.length ? C.dim + off.join(', ') + C.reset : C.dim + '—' + C.reset}`);
+    console.log(`  barra: ${cfg.bar?.width ?? 10} ${C.dim}${barPreview(cfg.bar?.width ?? 10)}${C.reset}   layout: ${cfg.layout || 'single'}`);
   }
+}
 
-  const flagMode = opts.toggle || opts.on || opts.off || opts.bar !== undefined || opts.layout || opts.rotate;
-  const interactive = ui.isInteractive() && !flagMode && !opts.yes;
-  let patch = null;
-  if (interactive) {
-    const base = install.readConfigFile(keys[0], home);
-    const feats = await ui.multiselect('O que mostrar na barra?', ALL_FEATURES.map((f) => ({ name: featLabel(f), value: f, checked: !!base.features?.[f] })));
-    const sizes = [8, 10, 12, 16, 20];
-    const bar = await ui.select('Tamanho da barra?', sizes.map((n) => ({ name: `${n}  ${barPreview(n)}`, value: n })), Math.max(0, sizes.indexOf(base.bar?.width ?? 10)));
-    const layout = await ui.select('Layout?', [{ name: 'Uma linha (compacto)', value: 'single' }, { name: 'Duas linhas', value: 'multi' }], base.layout === 'multi' ? 1 : 0);
-    patch = { features: Object.fromEntries(ALL_FEATURES.map((f) => [f, feats.includes(f)])), bar: { width: bar }, layout };
-  }
+// Menu interativo -> patch (features/bar/layout) a aplicar em todas as CLIs.
+async function promptConfig(base) {
+  const feats = await ui.multiselect('O que mostrar na barra?', ALL_FEATURES.map((f) => ({ name: featLabel(f), value: f, checked: !!base.features?.[f] })));
+  const sizes = [8, 10, 12, 16, 20];
+  const bar = await ui.select('Tamanho da barra?', sizes.map((n) => ({ name: `${n}  ${barPreview(n)}`, value: n })), Math.max(0, sizes.indexOf(base.bar?.width ?? 10)));
+  const layout = await ui.select('Layout?', [{ name: 'Uma linha (compacto)', value: 'single' }, { name: 'Duas linhas', value: 'multi' }], base.layout === 'multi' ? 1 : 0);
+  return { features: Object.fromEntries(ALL_FEATURES.map((f) => [f, feats.includes(f)])), bar: { width: bar }, layout };
+}
 
+function writeConfigs(keys, home, applyTo) {
   for (const key of keys) {
     const cfg = install.readConfigFile(key, home);
     cfg.features = cfg.features || {};
-    if (interactive) { Object.assign(cfg.features, patch.features); cfg.bar = patch.bar; cfg.layout = patch.layout; }
-    else applyConfigFlags(cfg, opts);
+    applyTo(cfg);
     install.writeConfigFile(key, cfg, home);
     const t = install.targets(home)[key];
     console.log(`${C.green}✓${C.reset} ${t.label}: ${ALL_FEATURES.filter((f) => cfg.features[f]).join(', ') || '(nada)'} ${C.dim}· barra ${cfg.bar?.width ?? 10} · ${cfg.layout || 'single'}${C.reset}`);
   }
+}
+
+const isFlagMode = (opts) => !!(opts.toggle || opts.on || opts.off || opts.bar !== undefined || opts.layout || opts.rotate);
+
+async function cmdConfig(opts) {
+  const home = opts.home;
+  const keys = resolveConfigKeys(opts, home);
+  if (!keys.length) { console.log(`${C.yellow}Nada configurado.${C.reset} Rode ${C.cyan}moodline init${C.reset}.`); return; }
+  if (opts.show) { showConfig(keys, home); return; }
+
+  const interactive = ui.isInteractive() && !isFlagMode(opts) && !opts.yes;
+  const patch = interactive ? await promptConfig(install.readConfigFile(keys[0], home)) : null;
+  writeConfigs(keys, home, (cfg) => {
+    if (interactive) { Object.assign(cfg.features, patch.features); cfg.bar = patch.bar; cfg.layout = patch.layout; }
+    else applyConfigFlags(cfg, opts);
+  });
   console.log(`${C.dim}A barra atualiza no próximo refresh — sem reiniciar.${C.reset}`);
 }
 

@@ -64,7 +64,7 @@ test('jdiSegment: aviso de update via versão do projeto (sem instalador global)
     mkdirSync(join(cwd, '.jdi'));
     writeFileSync(join(cwd, '.jdi', 'config.json'), JSON.stringify({ jdi_version: '0.1.0' }));
     const seg = jdiSegment({ cwd, home, cache: { jdiLatest: '0.1.13' }, cmpVer, colors: COLORS });
-    assert.ok(seg && seg.ad === false);
+    assert.ok(seg?.ad === false);
     assert.match(seg.txt, /JDI v0\.1\.13/);
   } finally { rmSync(cwd, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
 });
@@ -116,7 +116,7 @@ test('jdiSegment: presente + instalador desatualizado -> aviso de update', () =>
   try {
     mkdirSync(join(cwd, '.jdi'));
     const seg = jdiSegment({ cwd, home, cache: { jdiGlobal: '0.1.0', jdiLatest: '0.1.13' }, cmpVer, colors: COLORS });
-    assert.ok(seg && seg.ad === false);
+    assert.ok(seg?.ad === false);
     assert.match(seg.txt, /JDI v0\.1\.13/); assert.match(seg.txt, /npmjs\.com\/package\/jdi-cli/);
   } finally { rmSync(cwd, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
 });
@@ -133,7 +133,7 @@ test('jdiSegment: ausente -> anuncio na janela certa, null fora dela', () => {
   const cwd = tmp(); const home = tmp();
   try {
     const ad = jdiSegment({ cwd, home, cache: {}, rotateMs: 1000, cmpVer, colors: COLORS, now: 0 });
-    assert.ok(ad && ad.ad === true);
+    assert.ok(ad?.ad === true);
     assert.match(ad.txt, /npmjs\.com\/package\/jdi-cli/);
     assert.equal(jdiSegment({ cwd, home, cache: {}, rotateMs: 1000, cmpVer, colors: COLORS, now: 1000 }), null);
   } finally { rmSync(cwd, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
@@ -144,7 +144,7 @@ test('jdiSegment: anúncios diferentes usam efeitos diferentes (cobre os 4)', ()
   try {
     const txts = [0, 3000, 6000, 9000].map((now) => { // adIndex 0,1,2,3 -> os 4 efeitos
       const s = jdiSegment({ cwd, home, cache: {}, rotateMs: 1000, cmpVer, colors: COLORS, now });
-      assert.ok(s && s.ad === true);
+      assert.ok(s?.ad === true);
       assert.match(s.txt, /npmjs\.com\/package\/jdi-cli/);
       assert.match(s.txt, /\x1b\[/);
       return s.txt;

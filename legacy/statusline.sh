@@ -8,7 +8,7 @@ MODEL=$(echo "$input"  | jq -r '.model.display_name // "?"')
 EFFORT=$(echo "$input" | jq -r '.effort.level // empty')
 PCT=$(echo "$input"    | jq -r '.context_window.used_percentage // 0' | cut -d. -f1)
 TOKENS=$(echo "$input" | jq -r '.context_window.total_input_tokens // 0')
-[ -z "$PCT" ] && PCT=0
+[[ -z "$PCT" ]] && PCT=0
 
 # ---- tokens em ###k (arredondado) ----
 KTOK=$(( (TOKENS + 500) / 1000 ))
@@ -25,26 +25,26 @@ CYAN="\033[36m"; DIM="\033[2m"; RESET="\033[0m"
 
 # ---- barra (20 chars): █ cheio, ▒ borda suave, ░ vazio ----
 WIDTH=20
-FULL=$(( PCT * WIDTH / 100 )); [ $FULL -gt $WIDTH ] && FULL=$WIDTH
+FULL=$(( PCT * WIDTH / 100 )); [[ $FULL -gt $WIDTH ]] && FULL=$WIDTH
 EDGE=0
-if [ $FULL -lt $WIDTH ] && [ $PCT -gt 0 ]; then
-  EDGE=2; [ $((FULL+EDGE)) -gt $WIDTH ] && EDGE=$((WIDTH-FULL))
+if [[ $FULL -lt $WIDTH ]] && [[ $PCT -gt 0 ]]; then
+  EDGE=2; [[ $((FULL+EDGE)) -gt $WIDTH ]] && EDGE=$((WIDTH-FULL))
 fi
 EMPTY=$(( WIDTH - FULL - EDGE ))
 BAR=""
-[ $FULL  -gt 0 ] && printf -v S "%${FULL}s"  && BAR="${S// /█}"
-[ $EDGE  -gt 0 ] && printf -v S "%${EDGE}s"  && BAR="${BAR}${S// /▒}"
-[ $EMPTY -gt 0 ] && printf -v S "%${EMPTY}s" && BAR="${BAR}${S// /░}"
+[[ $FULL  -gt 0 ]] && printf -v S "%${FULL}s"  && BAR="${S// /█}"
+[[ $EDGE  -gt 0 ]] && printf -v S "%${EDGE}s"  && BAR="${BAR}${S// /▒}"
+[[ $EMPTY -gt 0 ]] && printf -v S "%${EMPTY}s" && BAR="${BAR}${S// /░}"
 
 # ---- humor pela ocupação (💀 quando perto de encher) ----
-if   [ "$PCT" -ge 90 ]; then MOOD="💀"
-elif [ "$PCT" -ge 75 ]; then MOOD="🥵"
-elif [ "$PCT" -ge 50 ]; then MOOD="😅"
-elif [ "$PCT" -ge 25 ]; then MOOD="🙂"
-else                         MOOD="😎"; fi
+if   [[ "$PCT" -ge 90 ]]; then MOOD="💀"
+elif [[ "$PCT" -ge 75 ]]; then MOOD="🥵"
+elif [[ "$PCT" -ge 50 ]]; then MOOD="😅"
+elif [[ "$PCT" -ge 25 ]]; then MOOD="🙂"
+else                          MOOD="😎"; fi
 
 # ---- effort (só aparece se o modelo suportar) ----
 EFF=""
-[ -n "$EFFORT" ] && EFF=" ${DIM}${EFFORT}${RESET}"
+[[ -n "$EFFORT" ]] && EFF=" ${DIM}${EFFORT}${RESET}"
 
 printf "%b" "${CYAN}${MODEL}${RESET}${EFF} ${COLOR}[${BAR}]${RESET} ${MOOD} ${COLOR}${PCT}% ${KTOK}k${RESET}\n"
