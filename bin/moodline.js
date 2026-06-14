@@ -27,25 +27,27 @@ const PKG = JSON.parse(readFileSync(join(HERE, '..', 'package.json'), 'utf8'));
 // ---- seguranca (validacao/sanitizacao centralizadas em ../lib/sanitize.mjs) ----
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
-// Caminho do npm-cli.js ao lado do node em execucao (sem depender do PATH).
+// Resolve o npm-cli.js por caminho ABSOLUTO a partir do node em execucao (process.execPath),
+// sem consultar o PATH. Cobre os layouts comuns (npm oficial no Windows e <prefix>/lib no POSIX/nvm).
 function npmCliPath() {
   const exeDir = dirname(process.execPath);
-  const candidates = process.platform === 'win32'
-    ? [join(exeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js')]
-    : [join(exeDir, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js')];
+  const candidates = [
+    join(exeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'),              // Windows: <node>\node_modules\npm
+    join(exeDir, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'), // POSIX:   <prefix>/lib/node_modules/npm
+  ];
   return candidates.find((p) => existsSync(p)) || null;
 }
 
-// Instala um pacote global SEM shell: `node npm-cli.js install -g <pkg>` (comando e args separados).
-// `pkg` passa por validatePackageName (allowlist) ANTES do spawn -> nenhuma entrada nao validada
-// chega ao processo filho (sem command injection); shell:false explicito. Roda no Windows (node
-// executa o .js direto, sem depender do .cmd).
+// Instala um pacote global SEM shell e SEM depender do PATH: roda o `npm-cli.js` (resolvido por
+// caminho absoluto a partir do node atual) com o proprio `node` (process.execPath, absoluto).
+// `pkg` validado por allowlist ANTES do spawn. Sem fallback por PATH -> evita S4036/CWE-426/427
+// (um `npm` malicioso num diretorio gravavel do PATH nunca e executado). Cross-platform: usa o
+// npm que acompanha o Node em execucao.
 function installGlobal(pkg) {
   const safe = validatePackageName(pkg);
   const cli = npmCliPath();
-  return cli
-    ? spawnSync(process.execPath, [cli, 'install', '-g', safe], { stdio: 'ignore', shell: false })
-    : spawnSync('npm', ['install', '-g', safe], { stdio: 'ignore', shell: false }); // fallback POSIX
+  if (!cli) throw new Error('npm não encontrado junto ao Node em execução — atualize manualmente: npm install -g moodline');
+  return spawnSync(process.execPath, [cli, 'install', '-g', safe], { stdio: 'ignore', shell: false });
 }
 
 function parseArgs(argv) {
