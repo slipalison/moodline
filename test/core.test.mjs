@@ -5,9 +5,10 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
+import { execFileSync } from 'node:child_process';
 import {
   render, buildLine, fromClaude, fromCopilot, fromOpenCode, fromGemini,
-  attachGit, loadConfig, cmpVer, updateBadge, maybeSpawnCheck, doUpdateCheck, readStdin, DEFAULT_CFG,
+  attachGit, loadConfig, cmpVer, updateBadge, maybeSpawnCheck, doUpdateCheck, readStdin, computeGitInfo, DEFAULT_CFG,
 } from '../lib/moodline-core.mjs';
 
 // Cache de update "fresco" por padrão → buildLine() não dispara processo filho nos testes.
@@ -141,6 +142,20 @@ test('anúncio do JDI ocupa o slot do trocadilho (suprime o pun)', () => {
 test('aviso de update do JDI não suprime o pun', () => {
   const out = strip(render({ model: 'M', pct: 10, tokens: 0, jdi: { txt: 'UPD', ad: false } }, wide({ features: { puns: true } })));
   assert.match(out, /UPD/); assert.match(out, /💬/);
+});
+
+test('computeGitInfo: porcelain v2 em 1 spawn — branch/dirty; não-repo -> null', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mood-git-'));
+  try {
+    assert.equal(computeGitInfo(dir), null); // nao-repo: status e fallback falham
+    execFileSync('git', ['init', '-q'], { cwd: dir, stdio: 'ignore' });
+    const clean = computeGitInfo(dir);
+    assert.ok(clean && typeof clean.branch === 'string' && clean.branch.length > 0);
+    assert.equal(clean.dirty, false);
+    assert.equal(clean.ahead, 0); assert.equal(clean.behind, 0); // sem upstream
+    writeFileSync(join(dir, 'x.txt'), '1');
+    assert.equal(computeGitInfo(dir).dirty, true); // untracked conta como sujo
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('attachGit: usa gitBranch; desligado vira null; ligado consulta git', () => {
