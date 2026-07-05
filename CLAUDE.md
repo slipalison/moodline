@@ -30,7 +30,7 @@ node bin/moodline.js config --home=<dir> --show
 
 ## Arquitetura
 
-**Engine** (copiado pra dentro da CLI no `init`, roda a cada refresh): `lib/moodline-core.mjs` + `lib/puns.mjs` + `lib/jdi.mjs`. Listados em `install.ENGINE_FILES` e copiados juntos pra `~/.claude/moodline/` (e `~/.copilot/moodline/`); o `settings.json` aponta pra `node ".../moodline-core.mjs" --adapter=<cli> --config=...`. **O engine só pode importar arquivos que também são copiados** (`puns.mjs`, `jdi.mjs`) + built-ins. Importar `ui`/`logo`/`install` daqui quebra a cópia instalada.
+**Engine** (copiado pra dentro da CLI no `init`, roda a cada refresh): `lib/moodline-core.mjs` + `lib/puns.mjs` + `lib/jdi.mjs` + `lib/pathguard.mjs`. Listados em `install.ENGINE_FILES` e copiados juntos pra `~/.claude/moodline/` (e `~/.copilot/moodline/`); o `settings.json` aponta pra `node ".../moodline-core.mjs" --adapter=<cli> --config=...`. **O engine só pode importar arquivos que também são copiados** (`puns.mjs`, `jdi.mjs`, `pathguard.mjs`) + built-ins. Importar `ui`/`logo`/`install` daqui quebra a cópia instalada. `pathguard.mjs` = `safeDir` (valida cwd externo antes de FS — S8707) + `gitBin` (git por caminho absoluto, nunca via PATH — S4036).
 
 **Instalador** (roda do pacote npm, nunca copiado): `lib/install.mjs` (configure/enable/disable/uninstall/config/refreshEngine, sempre user-level, `home` injetável), `lib/ui.mjs` (prompts + spinner), `lib/logo.mjs` (logo + animação), `bin/moodline.js` (dispatcher).
 

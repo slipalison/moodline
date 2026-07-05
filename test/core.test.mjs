@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { execFileSync } from 'node:child_process';
+import { gitBin } from '../lib/pathguard.mjs';
 import {
   render, buildLine, fromClaude, fromCopilot, fromOpenCode, fromGemini,
   attachGit, loadConfig, cmpVer, updateBadge, maybeSpawnCheck, doUpdateCheck, readStdin, computeGitInfo, DEFAULT_CFG,
@@ -145,6 +146,7 @@ test('aviso de update do JDI não suprime o pun', () => {
 });
 
 test('computeGitInfo: porcelain v2 em 1 spawn — branch/dirty; não-repo -> null', () => {
+  if (!gitBin()) return; // sem git em caminho confiavel neste ambiente -> feature degradada, skip
   const dir = mkdtempSync(join(tmpdir(), 'mood-git-'));
   try {
     assert.equal(computeGitInfo(dir), null); // nao-repo: status e fallback falham
