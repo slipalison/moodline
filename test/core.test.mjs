@@ -254,9 +254,10 @@ test('coauthorState: claude lê settings; copilot fixo on; outras n/a', () => {
 
 test('render: 🤝 do co-autor só quando ligado E feature on', () => {
   const base = { model: 'M', pct: 10, tokens: 0 };
-  assert.match(strip(render({ ...base, coauthor: true }, wide())), /🤝/);
-  assert.doesNotMatch(strip(render({ ...base, coauthor: false }, wide())), /🤝/);
-  assert.doesNotMatch(strip(render({ ...base, coauthor: true }, wide({ features: { coauthor: false } }))), /🤝/);
+  const onCfg = wide({ features: { coauthor: true } });
+  assert.match(strip(render({ ...base, coauthor: true }, onCfg)), /🤝/);
+  assert.doesNotMatch(strip(render({ ...base, coauthor: false }, onCfg)), /🤝/);   // estado off
+  assert.doesNotMatch(strip(render({ ...base, coauthor: true }, wide({ features: {} }))), /🤝/); // feature off (default)
 });
 
 test('cmpVer compara semver', () => {
