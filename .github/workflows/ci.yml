@@ -54,4 +54,5 @@ jobs:
         run: npm run coverage:lcov
       - name: SonarQube Scan
         if: ${{ env.SONAR_TOKEN != '' }}
-        uses: SonarSource/sonarqube-scan-action@v5
+        # pinado ao SHA (S7637 supply-chain: tag mutavel de terceiro pode ser sequestrada)
+        uses: SonarSource/sonarqube-scan-action@2f77a1ec69fb1d595b06f35ab27e97605bdef703 # v5
