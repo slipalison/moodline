@@ -36,7 +36,9 @@ node bin/moodline.js config --home=<dir> --show
 
 ### Fluxo de dados (render)
 
-CLI → JSON no stdin → `from<Cli>(json)` normaliza pro **estado único** → `buildLine` injeta `update`/`jdi` → `render(state, cfg)` → string ANSI. Estado = `{ model, effort, pct, tokens, ctxSize, costUsd, durationMs, linesAdded, linesRemoved, rate, cwd, gitBranch, repo, git, update, jdi }`.
+CLI → JSON no stdin → `from<Cli>(json)` normaliza pro **estado único** → `buildLine` injeta `update`/`jdi`/`coauthor` → `render(state, cfg)` → string ANSI. Estado = `{ model, effort, pct, tokens, ctxSize, costUsd, durationMs, linesAdded, linesRemoved, rate, cwd, gitBranch, repo, git, update, jdi, coauthor }`.
+
+**Co-autor** (feature `coauthor`, 🤝 discreto na barra quando os commits levam `Co-Authored-By`): `coauthorState(adapter)` lê a config da PRÓPRIA CLI (não o JSON do host) — Claude Code via `~/.claude/settings.json` (`attribution.commit===''` ou legada `includeCoAuthoredBy:false` = off; ausente = default on); Copilot CLI = fixo on (hardcoded, não configurável); Gemini/OpenCode/Junie = sem conceito → null. `moodline coauthor on|off` (→ `install.setCoauthor`) edita o `attribution` do `settings.json` do Claude (não-destrutivo). Ver matriz de atribuição por CLI em [[ai-cli-statusline-compat]].
 
 ### Segmentos e prioridade
 

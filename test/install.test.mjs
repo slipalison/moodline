@@ -73,6 +73,17 @@ test('refreshEngine preserva features e recarimba versão; sem configurar lança
   assert.equal(a.features.cost, true); assert.equal(a.version, I.pkgVersion());
 }));
 
+test('setCoauthor: off grava attribution vazio; on remove overrides; não-claude lança', () => run((home) => {
+  I.configure('claude', { features: [], home });
+  const settings = I.targets(home).claude.settings;
+  I.setCoauthor('claude', false, { home });
+  assert.equal(readJson(settings).attribution.commit, ''); // desliga Generated + Co-Authored-By
+  assert.ok(readJson(settings).statusLine, 'preserva o resto do settings.json');
+  I.setCoauthor('claude', true, { home });
+  assert.equal(readJson(settings).attribution, undefined); // volta ao default (ligado)
+  assert.throws(() => I.setCoauthor('copilot', false, { home }), /fixo|configurável/);
+}));
+
 test('uninstall --purge remove statusLine, engine e slash command', () => run((home) => {
   I.configure('claude', { home });
   const t = I.targets(home).claude;

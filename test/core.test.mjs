@@ -1,7 +1,7 @@
 // Testes do engine (render + adapters + formatadores + update). node:test, zero deps.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { gitBin } from '../lib/pathguard.mjs';
 import {
   render, buildLine, fromClaude, fromCopilot, fromOpenCode, fromGemini,
-  attachGit, loadConfig, cmpVer, updateBadge, maybeSpawnCheck, doUpdateCheck, readStdin, computeGitInfo, DEFAULT_CFG,
+  attachGit, loadConfig, cmpVer, updateBadge, maybeSpawnCheck, doUpdateCheck, readStdin, computeGitInfo, coauthorState, DEFAULT_CFG,
 } from '../lib/moodline-core.mjs';
 
 // Cache de update "fresco" por padrão → buildLine() não dispara processo filho nos testes.
@@ -230,6 +230,33 @@ test('readStdin: erro no stream nao rejeita (resolve o que tinha)', async () => 
   const p = readStdin(s, 1000);
   s.write('x'); s.emit('error', new Error('boom'));
   assert.equal(await p, 'x');
+});
+
+test('coauthorState: claude lê settings; copilot fixo on; outras n/a', () => {
+  const home = mkdtempSync(join(tmpdir(), 'mood-ca-'));
+  try {
+    const setFile = join(home, '.claude', 'settings.json');
+    mkdirSync(join(home, '.claude'), { recursive: true });
+    writeFileSync(setFile, JSON.stringify({}));
+    assert.equal(coauthorState('claude', home), true);                                  // ausente = default ligado
+    writeFileSync(setFile, JSON.stringify({ includeCoAuthoredBy: false }));
+    assert.equal(coauthorState('claude', home), false);                                 // legada desliga
+    writeFileSync(setFile, JSON.stringify({ attribution: { commit: '' } }));
+    assert.equal(coauthorState('claude', home), false);                                 // moderna vazia desliga
+    writeFileSync(setFile, JSON.stringify({ attribution: { commit: 'Generated…' } }));
+    assert.equal(coauthorState('claude', home), true);
+    assert.equal(coauthorState('copilot', home), true);                                 // Copilot: fixo on
+    assert.equal(coauthorState('gemini', home), null);                                  // sem conceito
+    rmSync(setFile, { force: true });
+    assert.equal(coauthorState('claude', home), true);                                  // sem arquivo = default ligado
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
+test('render: 🤝 do co-autor só quando ligado E feature on', () => {
+  const base = { model: 'M', pct: 10, tokens: 0 };
+  assert.match(strip(render({ ...base, coauthor: true }, wide())), /🤝/);
+  assert.doesNotMatch(strip(render({ ...base, coauthor: false }, wide())), /🤝/);
+  assert.doesNotMatch(strip(render({ ...base, coauthor: true }, wide({ features: { coauthor: false } }))), /🤝/);
 });
 
 test('cmpVer compara semver', () => {

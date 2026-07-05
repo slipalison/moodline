@@ -14,7 +14,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { render, ADAPTERS, attachGit, loadConfig, fromOpenCode, cmpVer } from '../lib/moodline-core.mjs';
+import { render, ADAPTERS, attachGit, loadConfig, fromOpenCode, cmpVer, coauthorState } from '../lib/moodline-core.mjs';
 import * as ui from '../lib/ui.mjs';
 import { printLogo, smallLogo } from '../lib/logo.mjs';
 import * as install from '../lib/install.mjs';
@@ -59,7 +59,7 @@ function parseArgs(argv) {
   return o;
 }
 
-const ALL_FEATURES = ['git', 'cost', 'rate', 'puns'];
+const ALL_FEATURES = ['git', 'cost', 'rate', 'puns', 'coauthor'];
 
 async function cmdInit(opts) {
   await printLogo({ animate: ui.isInteractive() && !opts['no-anim'] });
@@ -202,7 +202,9 @@ function cmdRender(opts) {
     raw = JSON.stringify({ model: { display_name: 'Opus' }, effort: { level: 'high' }, context_window: { used_percentage: 42, total_input_tokens: 84000 }, cost: { total_cost_usd: 0.12, total_duration_ms: 320000, total_lines_added: 120, total_lines_removed: 30 } });
   }
   let j = {}; try { j = JSON.parse(raw); } catch {}
-  console.log(render(attachGit(adapter(j), cfg.features.git), cfg));
+  const state = attachGit(adapter(j), cfg.features.git);
+  if (cfg.features.coauthor) state.coauthor = coauthorState((opts.adapter || 'claude').toLowerCase());
+  console.log(render(state, cfg));
 }
 
 async function cmdWatch(opts) {
@@ -221,7 +223,7 @@ async function cmdWatch(opts) {
   setInterval(tick, interval);
 }
 
-const featLabel = (f) => ({ git: 'Git — branch + estado', cost: 'Custo + tempo + linhas', rate: 'Rate limits 5h/7d', puns: 'Trocadilhos 💬' }[f] || f);
+const featLabel = (f) => ({ git: 'Git — branch + estado', cost: 'Custo + tempo + linhas', rate: 'Rate limits 5h/7d', puns: 'Trocadilhos 💬', coauthor: 'Co-autor 🤝 (quando ligado)' }[f] || f);
 function barPreview(n) {
   const full = Math.round(n * 0.4);
   const edge = Math.min(2, Math.max(0, n - full));
@@ -299,6 +301,31 @@ async function cmdConfig(opts) {
   console.log(`${C.dim}A barra atualiza no próximo refresh — sem reiniciar.${C.reset}`);
 }
 
+// moodline coauthor [on|off] — mostra/edita o Co-Authored-By nos commits (efetivo so no Claude Code).
+function cmdCoauthor(opts) {
+  const home = opts.home;
+  const val = opts._[1];
+  const keys = opts.cli ? (opts.cli === 'all' ? ['claude', 'copilot'] : [opts.cli]) : ['claude'];
+  if (val !== 'on' && val !== 'off') { // sem on/off: so mostra o estado
+    for (const key of keys) {
+      const t = install.targets(home)[key];
+      const st = coauthorState(key, home);
+      const label = st === null ? `${C.dim}n/a${C.reset}` : st ? `${C.green}ligado 🤝${C.reset}` : `${C.dim}desligado${C.reset}`;
+      const fixed = key === 'copilot' ? ` ${C.dim}(fixo — não configurável)${C.reset}` : '';
+      console.log(`${C.bold}${t.label}${C.reset}: co-autor ${label}${fixed}`);
+    }
+    console.log(`${C.dim}Mudar (Claude Code):${C.reset} ${C.cyan}moodline coauthor on${C.reset} ${C.dim}|${C.reset} ${C.cyan}moodline coauthor off${C.reset}`);
+    return;
+  }
+  for (const key of keys) {
+    const t = install.targets(home)[key];
+    try {
+      install.setCoauthor(key, val === 'on', { home });
+      console.log(`${C.green}✓${C.reset} ${t.label}: co-autor ${val === 'on' ? 'ligado 🤝' : 'desligado'} ${C.dim}(vale no próximo commit)${C.reset}`);
+    } catch (e) { console.log(`${C.yellow}!${C.reset} ${e.message}`); }
+  }
+}
+
 function cmdHelp() {
   console.log(`${smallLogo()} ${C.dim}v${PKG.version}${C.reset} — statusline divertida pra CLIs de IA
 
@@ -310,6 +337,7 @@ ${C.bold}Comandos:${C.reset}
   ${C.cyan}disable${C.reset}     Desliga (mantém config; re-enable instantâneo)
   ${C.cyan}config${C.reset}      Escolhe o que aparece (menu ou flags) — atualiza ao vivo
               ${C.dim}--show · --toggle=git · --on=a,b · --off=c · --bar=10 · --layout=multi · --cli=claude|copilot|all${C.reset}
+  ${C.cyan}coauthor${C.reset}    Mostra/edita o Co-Authored-By nos commits ${C.dim}[on|off — só Claude Code]${C.reset}
   ${C.cyan}doctor${C.reset}      Mostra o que está instalado, ligado e se há update
   ${C.cyan}update${C.reset}      Atualiza o moodline (npm global + engine das CLIs)
   ${C.cyan}uninstall${C.reset}   Remove a statusLine ${C.dim}[--purge apaga o engine]${C.reset}
@@ -335,6 +363,7 @@ switch (cmd) {
   case 'enable': cmdToggle(opts, true); break;
   case 'disable': cmdToggle(opts, false); break;
   case 'config': await cmdConfig(opts); break;
+  case 'coauthor': cmdCoauthor(opts); break;
   case 'uninstall': cmdUninstall(opts); break;
   case 'update': await cmdUpdate(opts); break;
   case 'doctor': await cmdDoctor(opts); break;
