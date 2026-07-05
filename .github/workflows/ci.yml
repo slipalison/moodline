@@ -34,3 +34,24 @@ jobs:
         with:
           node-version: 24
       - run: npm run coverage
+
+  sonar:
+    name: SonarCloud
+    runs-on: ubuntu-latest
+    # Requer o secret SONAR_TOKEN e a "Automatic Analysis" DESLIGADA no SonarCloud
+    # (Administration → Analysis Method). Sem o secret, o passo de scan e pulado (job verde).
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: https://sonarcloud.io
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # o Sonar precisa do historico completo (blame/novos issues)
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: cobertura (lcov pro Sonar)
+        run: npm run coverage:lcov
+      - name: SonarQube Scan
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@v5

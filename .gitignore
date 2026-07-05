@@ -7,5 +7,6 @@ npm-debug.log*
 .env.*
 *.tgz
 coverage/
+lcov.info
 .vscode/
 .idea/

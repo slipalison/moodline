@@ -20,7 +20,8 @@
   },
   "scripts": {
     "test": "node --test",
-    "coverage": "node --test --experimental-test-coverage --test-coverage-exclude=\"test/**\" --test-coverage-lines=90 --test-coverage-functions=90 --test-coverage-branches=80"
+    "coverage": "node --test --experimental-test-coverage --test-coverage-exclude=\"test/**\" --test-coverage-lines=90 --test-coverage-functions=90 --test-coverage-branches=80",
+    "coverage:lcov": "node --test --experimental-test-coverage --test-coverage-exclude=\"test/**\" --test-reporter=lcov --test-reporter-destination=lcov.info --test-reporter=spec --test-reporter-destination=stdout"
   },
   "keywords": [
     "statusline",
