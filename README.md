@@ -50,11 +50,12 @@ A barra precisa que a CLI rode um **comando** e mande os dados via **JSON no std
 |-----|:---:|-----|
 | **Claude Code** | ✅ Nativo | **Suportado.** Configurado pelo `init`. |
 | **GitHub Copilot CLI** | ⚗️ Experimental | **Suportado.** O `init` liga a feature flag `STATUS_LINE`. |
-| **Gemini CLI** | ❌ Só footer fixo | Experimental — só via extensão HUD de terceiros (hooks + scroll-region). Não é statusline por comando. |
+| **Antigravity CLI** (`agy`) | ✅ Nativo | **Suportado.** Sucessor do Gemini CLI (2026). Branch/dirty vêm do host; quota 5h/semanal vira o segmento de rate. Sem custo USD (o schema não expõe). |
+| **Gemini CLI** | ❌ Descontinuado | Transicionado pro Antigravity CLI em jun/2026 — use o alvo `--antigravity`. (Adapter antigo mantido por compatibilidade.) |
 | **OpenCode** | ❌ TUI fixa | Experimental — `moodline watch` lê a API HTTP e renderiza num painel tmux/zellij (fora da TUI). |
 | **Junie (JetBrains)** | ❌ Não suporta | Sem suporte. O único hook (`SessionStart`) **descarta o output**, então não dá pra renderizar uma barra. |
 
-Resumo: **Claude Code e Copilot CLI funcionam de verdade hoje**, porque compartilham o mesmo modelo (comando + JSON no stdin) com schemas quase idênticos — um único engine serve os dois. Os outros três dependem de mecanismos diferentes; veja [Outras CLIs](#outras-clis).
+Resumo: **Claude Code, Copilot CLI e Antigravity CLI funcionam de verdade hoje**, porque compartilham o mesmo modelo (comando + JSON no stdin) — um único engine serve os três. Os outros dependem de mecanismos diferentes; veja [Outras CLIs](#outras-clis).
 
 ## Como funciona
 
@@ -84,7 +85,7 @@ Tudo ligado por padrão. Pra escolher:
 npx moodline init --features=git,cost      # só git e custo
 npx moodline init --no-puns --no-rate      # tudo menos trocadilhos e rate limits
 npx moodline init --multi                  # layout em 2 linhas
-npx moodline init --all                    # força Claude Code E Copilot CLI
+npx moodline init --all                    # força Claude Code + Copilot CLI + Antigravity CLI
 ```
 
 ## Comandos
@@ -107,6 +108,7 @@ Habilite ou desabilite por CLI, sem perder a configuração — ideal pra altern
 ```bash
 moodline disable --claude     # desliga só no Claude Code
 moodline enable --copilot      # liga só no Copilot CLI
+moodline enable --antigravity  # liga só no Antigravity CLI (agy)
 moodline disable --all         # desliga em todas
 ```
 
@@ -176,7 +178,7 @@ O `config.json`:
 
 ## Outras CLIs
 
-- **Gemini CLI** — tem footer embutido com toggles (`ui.footer.*`), mas não roda um comando seu pra renderizar conteúdo arbitrário. Dá pra ter uma barra custom só via extensão de terceiros (estilo `gemini-cli-hud`, que usa hooks + escape de scroll-region). No roadmap do moodline como adapter experimental.
+- **Gemini CLI** — descontinuado pelo Google em jun/2026, substituído pelo **Antigravity CLI** (`agy`), que tem statusline por comando de verdade e é suportado pelo moodline (`--antigravity`). O adapter `gemini` antigo fica por compatibilidade.
 - **OpenCode** — a barra da TUI é fixa. O caminho é externo: `moodline watch --port 4096` consulta a API HTTP/SSE do OpenCode e imprime a barra, pra você fixar num painel do tmux/zellij. Experimental (o endpoint pode mudar entre versões).
 - **Junie (JetBrains)** — a CLI existe (beta), mas não tem statusline e o hook `SessionStart` descarta o stdout. Sem caminho viável hoje.
 

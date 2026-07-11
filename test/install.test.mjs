@@ -1,7 +1,7 @@
 // Testes da instalação/toggle/config/update. Tudo em HOME sandbox (nunca toca config real).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, existsSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as I from '../lib/install.mjs';
@@ -106,12 +106,32 @@ test('configuredKeys lista só quem tem engine', () => run((home) => {
   assert.deepEqual(I.configuredKeys(home), ['claude']);
 }));
 
-test('targets: paths user-level; copilot sem commandFile', () => {
+test('targets: paths user-level; copilot/antigravity sem commandFile', () => {
   const t = I.targets('/HOME');
   assert.ok(t.claude.settings.includes('.claude'));
   assert.ok(t.copilot.settings.includes('.copilot'));
   assert.equal(t.copilot.commandFile, null);
+  assert.match(t.antigravity.settings.replaceAll('\\', '/'), /\.gemini\/antigravity-cli\/settings\.json$/);
+  assert.equal(t.antigravity.commandFile, null);
 });
+
+test('configure antigravity: statusLine com enabled:true, sem padding; preserva settings existentes', () => run((home) => {
+  const t = I.targets(home).antigravity;
+  // settings pre-existentes do agy (colorScheme etc) — configure nao pode destruir
+  mkdirSync(t.dir, { recursive: true });
+  writeFileSync(t.settings, JSON.stringify({ colorScheme: 'tokyo night', trustedWorkspaces: ['C:\\x'] }));
+  I.configure('antigravity', { home });
+  const s = readJson(t.settings);
+  assert.equal(s.colorScheme, 'tokyo night');
+  assert.deepEqual(s.trustedWorkspaces, ['C:\\x']);
+  assert.equal(s.statusLine.type, 'command');
+  assert.equal(s.statusLine.enabled, true);
+  assert.equal(s.statusLine.padding, undefined);
+  assert.match(s.statusLine.command, /--adapter=antigravity/);
+  assert.ok(existsSync(t.core));
+  const d = I.detectInstalled(home).find((x) => x.key === 'antigravity');
+  assert.equal(d.wired, true);
+}));
 
 test('fetchLatest: sucesso, !ok e exceção', async () => {
   const real = globalThis.fetch;

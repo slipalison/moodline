@@ -51,7 +51,7 @@ CLI → JSON no stdin → `from<Cli>(json)` normaliza pro **estado único** → 
 
 ### Adicionar suporte a uma CLI
 
-Escreva `fromX(json)` em `moodline-core.mjs`, registre em `ADAPTERS`, e (se tiver statusLine por comando) adicione um alvo em `install.targets()`. Só **Claude Code** e **Copilot CLI** têm esse modelo (no Copilot exige a flag `STATUS_LINE`, ligada pelo `init`). Gemini/OpenCode = adapters experimentais; Junie não suporta (hook descarta stdout).
+Escreva `fromX(json)` em `moodline-core.mjs`, registre em `ADAPTERS`, e (se tiver statusLine por comando) adicione um alvo em `install.targets()` — o `bin` deriva as flags/`--cli` de `Object.keys(targets())` (`ALL_CLIS`). Têm esse modelo: **Claude Code**, **Copilot CLI** (exige a flag `STATUS_LINE`, ligada pelo `init`) e **Antigravity CLI** (`agy`, sucessor do Gemini CLI; settings em `~/.gemini/antigravity-cli/settings.json`, `statusLine{type,command,enabled}` sem padding/refreshInterval; payload traz `vcs{branch,dirty}` nativo e `quota{gemini-5h,gemini-weekly}.remaining_fraction` → rate; sem custo/effort). Gemini (descontinuado)/OpenCode = adapters experimentais; Junie não suporta (hook descarta stdout).
 
 ## Invariantes
 

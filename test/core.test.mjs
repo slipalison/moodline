@@ -8,7 +8,7 @@ import { PassThrough } from 'node:stream';
 import { execFileSync } from 'node:child_process';
 import { gitBin } from '../lib/pathguard.mjs';
 import {
-  render, buildLine, fromClaude, fromCopilot, fromOpenCode, fromGemini,
+  render, buildLine, fromClaude, fromCopilot, fromAntigravity, fromOpenCode, fromGemini,
   attachGit, loadConfig, cmpVer, updateBadge, maybeSpawnCheck, doUpdateCheck, readStdin, computeGitInfo, coauthorState, DEFAULT_CFG,
 } from '../lib/moodline-core.mjs';
 
@@ -48,6 +48,35 @@ test('fromCopilot mapeia branch, current_context_tokens e displayed_context_limi
   const s = fromCopilot({ model: { display_name: 'GPT-5' }, context_window: { used_percentage: 25, current_context_tokens: 50000, displayed_context_limit: 128000 }, remote: { branch: 'main' }, cwd: '/x' });
   assert.equal(s.model, 'GPT-5'); assert.equal(s.pct, 25); assert.equal(s.tokens, 50000);
   assert.equal(s.ctxSize, 128000); assert.equal(s.gitBranch, 'main'); assert.equal(s.rate, null);
+});
+
+test('fromAntigravity: payload do agy — quota vira rate, vcs vira branch/dirty', () => {
+  const s = fromAntigravity({
+    model: { id: 'gemini-3.5-pro', display_name: 'Gemini 3.5 Pro' },
+    agent_state: 'idle',
+    context_window: { used_percentage: 31.7, total_input_tokens: 332000, total_output_tokens: 9000, context_window_size: 1048576 },
+    quota: { 'gemini-5h': { remaining_fraction: 0.6, reset_in_seconds: 3600 }, 'gemini-weekly': { remaining_fraction: 0.9 } },
+    vcs: { branch: 'main', dirty: true, type: 'git' },
+    cwd: 'D:/x', terminal_width: 120,
+  });
+  assert.equal(s.model, 'Gemini 3.5 Pro'); assert.equal(s.pct, 31);
+  assert.equal(s.tokens, 332000); assert.equal(s.ctxSize, 1048576);
+  assert.equal(Math.round(s.rate.five), 40); assert.equal(Math.round(s.rate.seven), 10); // usado = 1 - remaining
+  assert.equal(s.gitBranch, 'main'); assert.equal(s.gitDirty, true);
+  assert.equal(s.costUsd, null); assert.equal(s.effort, null); // schema do agy nao tem custo/effort
+});
+
+test('fromAntigravity: payload vazio e sem quota', () => {
+  const s = fromAntigravity({});
+  assert.equal(s.model, '?'); assert.equal(s.pct, 0); assert.equal(s.rate, null);
+  assert.equal(s.gitBranch, null); assert.equal(s.gitDirty, false);
+  assert.equal(fromAntigravity({ model: { id: 'm1' } }).model, 'm1'); // cai pro id sem display_name
+});
+
+test('attachGit: dirty do host (gitDirty) e propagado', () => {
+  const g = attachGit({ gitBranch: 'dev', gitDirty: true, cwd: null }, false).git;
+  assert.equal(g.branch, 'dev'); assert.equal(g.dirty, true);
+  assert.equal(attachGit({ gitBranch: 'dev', cwd: null }, false).git.dirty, false); // sem info = false
 });
 
 test('fromOpenCode e fromGemini toleram shapes variados', () => {

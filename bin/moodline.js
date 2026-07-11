@@ -60,6 +60,7 @@ function parseArgs(argv) {
 }
 
 const ALL_FEATURES = ['git', 'cost', 'rate', 'puns', 'coauthor'];
+const ALL_CLIS = Object.keys(install.targets()); // claude, copilot, antigravity
 
 async function cmdInit(opts) {
   await printLogo({ animate: ui.isInteractive() && !opts['no-anim'] });
@@ -87,7 +88,7 @@ async function cmdInit(opts) {
       { name: 'Duas linhas (mais informação)', value: 'multi' },
     ]);
   } else {
-    keys = ['claude', 'copilot'].filter((k) => opts[k] || opts.all);
+    keys = ALL_CLIS.filter((k) => opts[k] || opts.all);
     if (!keys.length) keys = detected.filter((d) => d.present || d.key === 'claude').map((d) => d.key);
     features = typeof opts.features === 'string'
       ? opts.features.split(',').map((s) => s.trim()).filter(Boolean)
@@ -110,6 +111,9 @@ function postInstall(keys) {
   if (keys.includes('copilot')) {
     console.log(`${C.yellow}!${C.reset} Copilot CLI: statusLine é experimental — se não aparecer, rode ${C.cyan}/experimental${C.reset} ou reinicie.`);
   }
+  if (keys.includes('antigravity')) {
+    console.log(`${C.yellow}!${C.reset} Antigravity CLI: abra uma sessão nova do ${C.cyan}agy${C.reset} — se a barra não aparecer, rode ${C.cyan}/statusline on${C.reset}.`);
+  }
   console.log(`\n${C.dim}Ligar/desligar quando quiser:${C.reset}`);
   console.log(`  ${C.cyan}moodline disable${C.reset}   ${C.dim}# desliga (mantém config)${C.reset}`);
   console.log(`  ${C.cyan}moodline enable${C.reset}    ${C.dim}# liga de novo${C.reset}`);
@@ -117,7 +121,7 @@ function postInstall(keys) {
 }
 
 function resolveKeys(opts, needConfigured) {
-  let keys = ['claude', 'copilot'].filter((k) => opts[k] || opts.all);
+  let keys = ALL_CLIS.filter((k) => opts[k] || opts.all);
   if (!keys.length) {
     const det = install.detectInstalled(opts.home);
     keys = det.filter((d) => (needConfigured ? d.engine || d.wired : d.present)).map((d) => d.key);
@@ -245,8 +249,8 @@ function applyConfigFlags(cfg, opts) {
 
 // Resolve em quais CLIs operar: flags --claude/--copilot/--cli, senao as configuradas. Só as que têm config.
 function resolveConfigKeys(opts, home) {
-  let keys = ['claude', 'copilot'].filter((k) => opts[k]);
-  if (opts.cli) keys = opts.cli === 'all' ? ['claude', 'copilot'] : [opts.cli];
+  let keys = ALL_CLIS.filter((k) => opts[k]);
+  if (opts.cli) keys = opts.cli === 'all' ? ALL_CLIS : [opts.cli];
   if (!keys.length) keys = install.configuredKeys(home);
   return keys.filter((k) => install.readConfigFile(k, home));
 }
@@ -305,7 +309,7 @@ async function cmdConfig(opts) {
 function cmdCoauthor(opts) {
   const home = opts.home;
   const val = opts._[1];
-  const keys = opts.cli ? (opts.cli === 'all' ? ['claude', 'copilot'] : [opts.cli]) : ['claude'];
+  const keys = opts.cli ? (opts.cli === 'all' ? ALL_CLIS : [opts.cli]) : ['claude'];
   if (val !== 'on' && val !== 'off') { // sem on/off: so mostra o estado
     for (const key of keys) {
       const t = install.targets(home)[key];
@@ -333,10 +337,10 @@ ${C.bold}Uso:${C.reset} npx moodline <comando> [opções]
 
 ${C.bold}Comandos:${C.reset}
   ${C.cyan}init${C.reset}        Wizard de instalação (interativo) — escopo global
-  ${C.cyan}enable${C.reset}      Liga a statusline   ${C.dim}[--all | --claude | --copilot]${C.reset}
+  ${C.cyan}enable${C.reset}      Liga a statusline   ${C.dim}[--all | --claude | --copilot | --antigravity]${C.reset}
   ${C.cyan}disable${C.reset}     Desliga (mantém config; re-enable instantâneo)
   ${C.cyan}config${C.reset}      Escolhe o que aparece (menu ou flags) — atualiza ao vivo
-              ${C.dim}--show · --toggle=git · --on=a,b · --off=c · --bar=10 · --layout=multi · --cli=claude|copilot|all${C.reset}
+              ${C.dim}--show · --toggle=git · --on=a,b · --off=c · --bar=10 · --layout=multi · --cli=claude|copilot|antigravity|all${C.reset}
   ${C.cyan}coauthor${C.reset}    Mostra/edita o Co-Authored-By nos commits ${C.dim}[on|off — só Claude Code]${C.reset}
   ${C.cyan}doctor${C.reset}      Mostra o que está instalado, ligado e se há update
   ${C.cyan}update${C.reset}      Atualiza o moodline (npm global + engine das CLIs)
@@ -345,7 +349,7 @@ ${C.bold}Comandos:${C.reset}
   ${C.cyan}watch${C.reset}       [experimental] Poller pro OpenCode → stdout
 
 ${C.bold}init não-interativo:${C.reset}
-  --all | --claude | --copilot     escolhe a(s) CLI(s)
+  --all | --claude | --copilot | --antigravity     escolhe a(s) CLI(s)
   --features=git,cost,rate,puns    liga só essas
   --no-puns --no-rate              desliga uma feature
   --multi                          layout em 2 linhas
