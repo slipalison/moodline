@@ -127,7 +127,10 @@ test('configure antigravity: statusLine com enabled:true, sem padding; preserva 
   assert.equal(s.statusLine.type, 'command');
   assert.equal(s.statusLine.enabled, true);
   assert.equal(s.statusLine.padding, undefined);
-  assert.match(s.statusLine.command, /--adapter=antigravity/);
+  // agy nao interpreta aspas/args (split ingenuo): comando BARE, engine se autoconfigura
+  assert.match(s.statusLine.command, /^node [^"]+moodline-core\.mjs$/);
+  assert.doesNotMatch(s.statusLine.command, /--adapter|"/);
+  assert.equal(readJson(t.config).adapter, 'antigravity'); // adapter vai no config.json
   assert.ok(existsSync(t.core));
   const d = I.detectInstalled(home).find((x) => x.key === 'antigravity');
   assert.equal(d.wired, true);

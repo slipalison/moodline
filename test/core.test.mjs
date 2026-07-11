@@ -73,6 +73,17 @@ test('fromAntigravity: payload vazio e sem quota', () => {
   assert.equal(fromAntigravity({ model: { id: 'm1' } }).model, 'm1'); // cai pro id sem display_name
 });
 
+test('buildLine: sem --adapter usa o adapter do config.json (modo agy, comando sem args)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mood-agy-'));
+  try {
+    const cfgFile = join(dir, 'c.json');
+    writeFileSync(cfgFile, JSON.stringify({ adapter: 'antigravity', width: 200 }));
+    const payload = JSON.stringify({ model: { display_name: 'Gemini' }, context_window: { used_percentage: 10, total_input_tokens: 5000 }, quota: { 'gemini-5h': { remaining_fraction: 0.5 } } });
+    const out = buildLine(payload, { config: cfgFile }); // sem args.adapter
+    assert.match(out, /Gemini/); assert.match(out, /5h 50%/); // quota so existe no adapter antigravity
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('attachGit: dirty do host (gitDirty) e propagado', () => {
   const g = attachGit({ gitBranch: 'dev', gitDirty: true, cwd: null }, false).git;
   assert.equal(g.branch, 'dev'); assert.equal(g.dirty, true);
